@@ -1,0 +1,22 @@
+[project]
+name = "bookrag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "flask[async]>=3.1.2",
+    "langchain-chroma>=1.0.0",
+    "langchain-openai>=1.0.3",
+    "langgraph>=1.0.3",
+    "pydantic>=2.12.4",
+    "pypdf>=6.3.0",
+    "pytest>=9.0.1",
+    "ragas>=0.3.9",
+    "sqlalchemy>=2.0.44",
+    "python-dotenv>=1.2.1",
+    "langchain-text-splitters>=1.0.0",
+    "tqdm>=4.66.0",
+    "datasets>=2.14.0",
+    "langchain-community>=0.4.1",
+]

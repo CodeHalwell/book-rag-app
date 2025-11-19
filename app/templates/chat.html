@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookRAG Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between shadow-lg z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+            </div>
+            <h1 class="text-xl font-bold tracking-wide">BookRAG</h1>
+        </div>
+        <button class="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+    </header>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide max-w-4xl mx-auto w-full">
+        
+        <!-- Initial Greeting -->
+        <div class="flex justify-start message-appear">
+            <div class="flex flex-col space-y-1 max-w-[80%]">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span class="text-xs font-bold">AI</span>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-2xl rounded-tl-none border border-gray-700 shadow-sm">
+                        <p class="text-sm text-gray-200">Hello! I'm BookRAG. Ask me any question about your document collection.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if history %}
+            {% for chat in history %}
+                <!-- User Message -->
+                <div class="flex justify-end message-appear">
+                    <div class="flex flex-col space-y-1 max-w-[80%] items-end">
+                        <div class="flex items-center space-x-2 flex-row-reverse space-x-reverse">
+                            <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <div class="chat-bubble-user p-3 text-white">
+                                <p class="text-sm whitespace-pre-wrap">{{ chat.question }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Message -->
+                <div class="flex justify-start message-appear">
+                    <div class="flex flex-col space-y-1 max-w-[80%]">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span class="text-xs font-bold">AI</span>
+                            </div>
+                            <div class="chat-bubble-ai p-3">
+                                <div class="text-sm text-gray-200 whitespace-pre-wrap">{{ chat.answer }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="border-t border-gray-700 bg-gray-800 p-4">
+        <div class="max-w-4xl mx-auto relative">
+            <form id="chat-form" class="flex items-end space-x-2">
+                <div class="relative flex-1">
+                    <textarea 
+                        id="user-input"
+                        rows="1"
+                        class="w-full bg-gray-900 text-white border-2 border-gray-700 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none transition-all placeholder-gray-500"
+                        placeholder="Ask a question..."
+                        oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 150) + 'px'"
+                        onkeydown="if(event.keyCode == 13 && !event.shiftKey) { event.preventDefault(); this.form.dispatchEvent(new Event('submit')); }"
+                    ></textarea>
+                </div>
+                <button 
+                    type="submit"
+                    id="send-btn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg transition-transform transform active:scale-95 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </form>
+            <p class="text-center text-xs text-gray-500 mt-2">AI can make mistakes. Please verify information.</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>
