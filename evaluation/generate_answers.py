@@ -1,0 +1,91 @@
+import sys
+from pathlib import Path
+import os
+import asyncio
+import pandas as pd
+import json
+from dotenv import load_dotenv
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from rag.graph import build_graph
+from utils.logging import Logging
+
+load_dotenv()
+logging = Logging()
+rag_graph = build_graph()
+
+async def generate_answers():
+    input_path = "evaluation/data/ragas_data.csv"
+    if not os.path.exists(input_path):
+        logging.log_error(f"Input file not found: {input_path}")
+        print(f"Error: File not found at {input_path}")
+        return
+
+    logging.log_info(f"Loading questions from {input_path}")
+    df = pd.read_csv(input_path)
+    
+    generated_answers = []
+    all_contexts = []
+    
+    total = len(df)
+    print(f"Starting answer generation for {total} questions...")
+
+    for index, row in df.iterrows():
+        question = row.get("Prompt")
+        if not question or pd.isna(question):
+            logging.log_error(f"Row {index} is missing 'Prompt'")
+            generated_answers.append("")
+            all_contexts.append("[]")
+            continue
+            
+        print(f"Processing {index + 1}/{total}...")
+        logging.log_info(f"Processing question {index + 1}/{total}: {str(question)[:50]}...")
+        
+        try:
+            # Invoke RAG graph
+            res = await rag_graph.ainvoke({"question": question})
+            answer = res.get("answer", "No answer generated")
+            
+            generated_answers.append(answer)
+            
+            # Extract contexts
+            docs = res.get("retrieved_documents", [])
+            current_contexts = []
+            for d in docs:
+                if isinstance(d, str):
+                    current_contexts.append(d)
+                elif isinstance(d, dict):
+                    current_contexts.append(d.get("content", ""))
+                elif hasattr(d, "content"):
+                    current_contexts.append(d.content)
+                else:
+                    current_contexts.append(str(d))
+            
+            # Store as JSON string to preserve list structure in CSV
+            all_contexts.append(json.dumps(current_contexts))
+            
+        except Exception as e:
+            logging.log_error(f"Error processing question '{question}': {str(e)}")
+            generated_answers.append(f"Error: {str(e)}")
+            all_contexts.append("[]")
+
+    # Add new columns
+    df["generated_answer"] = generated_answers
+    df["contexts"] = all_contexts
+
+    # Save to output file
+    output_path = "evaluation/data/ragas_data_with_answers.csv"
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    df.to_csv(output_path, index=False)
+    
+    print(f"\nSuccess! Generated answers and contexts saved to: {output_path}")
+    logging.log_info(f"Saved results with generated answers and contexts to {output_path}")
+
+if __name__ == "__main__":
+    asyncio.run(generate_answers())
