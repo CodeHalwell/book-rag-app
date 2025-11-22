@@ -25,6 +25,8 @@ class RetrievedDocument(BaseModel):
 
 class RetrievalRequired(BaseModel):
     retrieval_required: bool = Field(description="Whether a retrieval question is required to answer the user's question")
+    inappropriate_question: bool = Field(description="Whether the question is inappropriate or not")
+    improved_question: str = Field(description="An improved question that is appropriate and relevant to the user's question")
 
 class RAGState(TypedDict):
     question: str

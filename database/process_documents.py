@@ -19,14 +19,16 @@ def process_documents() -> None:
             db_path=os.getenv("VECTOR_STORE_DB_PATH", "db"),
             documents_directory=os.getenv("VECTOR_STORE_DOCUMENTS_DIRECTORY", "documents"),
         )
-
+        print(f"Initialising vector store...")
         vector_store.initialise_vector_store()
+        print(f"Upserting documents...")
         vector_store.upsert_documents()
+        print(f"Documents upserted successfully!")
     except Exception as e:
         print(f"Error processing documents: {e}")
         raise e
     finally:
-        print("Documents processed successfully!")
+        print("Process completed successfully!")
         
 if __name__ == "__main__":
     process_documents()

@@ -11,6 +11,7 @@ from langchain_chroma import Chroma
 from database.document_loader import DocumentLoader
 from langchain_openai import OpenAIEmbeddings
 import os
+import tqdm
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -32,15 +33,32 @@ class VectorStore:
             embedding_function=embeddings,
             persist_directory=self.db_path,
         )
+        print(f"Vector store initialised successfully.")
+
 
     def upsert_documents(self) -> None:
         """
         Upserts documents into the vector store.
-        The documents are preprocessed and then added to the vector store.
+        The documents are preprocessed and then added to the vector store in batches.
         """
         loader = DocumentLoader(self.directory)
         documents = loader.preprocess_documents()
-        self.vector_store.add_documents(documents)
+        
+        # ChromaDB has a max batch size limit, so we need to batch the documents
+        batch_size = 5000  # Safe batch size under ChromaDB's limit of 5461
+        total_docs = len(documents)
+        
+        print(f"Adding {total_docs} documents in batches of {batch_size}...")
+        
+        for i in tqdm.tqdm(range(0, total_docs, batch_size), desc="Adding documents"):
+            batch = documents[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_docs + batch_size - 1) // batch_size
+            
+            print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} documents)...")
+            self.vector_store.add_documents(batch)
+        
+        print(f"Successfully added all {total_docs} documents to the vector store.")
 
 
     def get_retriever(self, search_type: str = "mmr", k: int = 4, fetch_k: int = 20, lambda_mult: float = 0.5):
@@ -68,7 +86,7 @@ class VectorStore:
             search_kwargs=search_kwargs
         )
 
-    def query_vector_store(self, query: str, k: int = 4):
+    def query_vector_store(self, query: str, k: int = 6):
         """
         Direct query using MMR by default for better results.
         """

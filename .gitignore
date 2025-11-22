@@ -11,3 +11,4 @@ wheels/
 .env
 book_collection
 code_review
+db
