@@ -88,7 +88,6 @@ async def run_evaluation():
     
     # Setup LLM and Embeddings
     api_key = os.getenv("OPENAI_API_KEY")
-    client = AsyncOpenAI(api_key=api_key)
     
     # Use LangchainLLMWrapper manually to ensure correct LLM type
     openai_model = ChatOpenAI(model="gpt-4o-mini", api_key=api_key)
