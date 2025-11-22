@@ -14,7 +14,7 @@ from ragas.metrics import (
     faithfulness,
     AspectCritic
 )
-from ragas.llms import llm_factory, LangchainLLMWrapper
+from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
 from dotenv import load_dotenv
 from utils.logging import Logging
