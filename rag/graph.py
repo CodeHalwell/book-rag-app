@@ -56,7 +56,7 @@ def build_graph() -> StateGraph:
 
 if __name__ == "__main__":
     graph = build_graph()
-    inappropriate_question_result = graph.invoke({"question": "Your a horrible piece of shit?"})
+    inappropriate_question_result = graph.invoke({"question": "You're a horrible piece of shit?"})
     print(inappropriate_question_result)
     simple_question_result = graph.invoke({"question": "What is the capital of France?"})
     print(simple_question_result)
