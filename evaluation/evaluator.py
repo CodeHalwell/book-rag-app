@@ -90,11 +90,11 @@ async def run_evaluation():
     api_key = os.getenv("OPENAI_API_KEY")
     
     # Use LangchainLLMWrapper manually to ensure correct LLM type
-    openai_model = ChatOpenAI(model="gpt-4o-mini", api_key=api_key)
+    openai_model = ChatOpenAI(model=os.getenv("OPENAI_EVALUATION_LLM", "gpt-4o-mini"), api_key=api_key)
     llm = LangchainLLMWrapper(openai_model)
     
     # Use LangchainEmbeddingsWrapper manually
-    openai_embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
+    openai_embeddings = OpenAIEmbeddings(model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"), api_key=api_key)
     embeddings = LangchainEmbeddingsWrapper(openai_embeddings)
     
     print(f"LLM Type: {type(llm)}")
