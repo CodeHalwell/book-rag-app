@@ -62,10 +62,11 @@ def test_authenticate_user(db):
 def test_create_chat_entry(db):
     """Tests the create_chat_entry function."""
     user = get_user_by_id(db, 1)
-    chat = create_chat_entry(db, user.id, "Test Question", "Test Answer")
+    chat = create_chat_entry(db, user.id, "Test Question", "Test Answer", "test-session-id")
     assert chat is not None
     assert chat.question == "Test Question"
     assert chat.answer == "Test Answer"
+    assert chat.session_id == "test-session-id"
 
 def test_get_user_chat_history(db):
     """Tests the get_user_chat_history function."""
@@ -75,6 +76,6 @@ def test_get_user_chat_history(db):
 def test_delete_chat_entry(db):
     """Tests the delete_chat_entry function."""
     user = get_user_by_id(db, 1)
-    chat = create_chat_entry(db, user.id, "Delete Test", "Delete Answer")
+    chat = create_chat_entry(db, user.id, "Delete Test", "Delete Answer", "test-session-id")
     deleted = delete_chat_entry(db, chat.id)
     assert deleted is True
