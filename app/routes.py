@@ -102,12 +102,12 @@ def chat():
 
         except ValueError as e:
             logger.warning(f"Invalid input: {e}")
-            q.put(f"Error: Invalid request format")
+            q.put({"error": "Invalid request format"})
             q.put(None)
         
         except Exception as e:
             logger.error(f"Unexpected error: {e}", exc_info=True)
-            q.put(f"Error: An internal error occurred")
+            q.put({"error": "An internal error occurred"})
             q.put(None)
 
     def generator():
