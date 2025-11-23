@@ -27,7 +27,8 @@ def validate_environment():
 def create_app():
     validate_environment()
     
-    app = Flask(__name__)
+    # Explicitly set template and static folders since app.py is in root but resources are in app/
+    app = Flask(__name__, template_folder='app/templates', static_folder='app/static')
     
     # Secret key validation
     secret_key = os.getenv('FLASK_SECRET_KEY')

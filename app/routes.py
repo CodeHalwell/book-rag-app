@@ -1,8 +1,12 @@
-from flask import Blueprint, request, jsonify, render_template, session
+from flask import Blueprint, request, jsonify, render_template, session, Response, stream_with_context
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import logging
 import os
+import json
+from threading import Thread
+from queue import Queue, Empty
+from langchain_core.callbacks import BaseCallbackHandler
 from database.connection import get_db
 from utils.crud import get_user_by_id, create_user, get_user_chat_history, create_chat_entry
 from rag.graph import build_graph
@@ -18,6 +22,15 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
 )
+
+class StreamHandler(BaseCallbackHandler):
+    def __init__(self, queue):
+        self.queue = queue
+        self.streamed = False
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.streamed = True
+        self.queue.put(token)
 
 @app_routes.route('/', methods=['GET'])
 def index():
@@ -40,26 +53,66 @@ def index():
 def chat():
     data = request.json
     user_query = data.get('query')
+    session_id = data.get('session_id')
     
     # TODO: Replace with proper session-based auth
     user_id = session.get('user_id', 1)
     
     if not user_query:
         return jsonify({'error': 'No query provided'}), 400
-
-    try:
-        result = rag_graph.invoke({"question": user_query})
-        answer = result.get("answer", "Sorry, I could not generate an answer.")
-
-        with get_db() as db:
-            create_chat_entry(db, user_id, user_query, answer)
-
-        return jsonify({'answer': answer})
-
-    except ValueError as e:
-        logger.warning(f"Invalid input: {e}")
-        return jsonify({'error': 'Invalid request format'}), 400
     
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        return jsonify({'error': 'An internal error occurred'}), 500
+    if not session_id:
+        return jsonify({'error': 'No session_id provided'}), 400
+
+    q = Queue()
+    handler = StreamHandler(q)
+
+    def task():
+        try:
+            result = rag_graph.invoke(
+                {"question": user_query},
+                config={"configurable": {"stream_callback": handler}}
+            )
+            answer = result.get("answer", "Sorry, I could not generate an answer.")
+
+            # If nothing was streamed (e.g. inappropriate question check blocked it), 
+            # stream the answer now
+            if not handler.streamed:
+                q.put(answer)
+
+            # Save to DB
+            with get_db() as db:
+                create_chat_entry(db, user_id, user_query, answer, session_id)
+            
+            q.put(None) # Sentinel for end of stream
+
+        except ValueError as e:
+            logger.warning(f"Invalid input: {e}")
+            q.put(f"Error: Invalid request format")
+            q.put(None)
+        
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}", exc_info=True)
+            q.put(f"Error: An internal error occurred")
+            q.put(None)
+
+    def generator():
+        thread = Thread(target=task)
+        thread.start()
+
+        while True:
+            try:
+                token = q.get(timeout=60) # 60s timeout for generation
+                if token is None:
+                    break
+                
+                if isinstance(token, str) and token.startswith("Error:"):
+                    yield json.dumps({"error": token.split(":", 1)[1].strip()}) + "\n"
+                    break
+
+                yield json.dumps({"answer": token}) + "\n"
+            except Empty:
+                yield json.dumps({"error": "Timeout waiting for response"}) + "\n"
+                break
+
+    return Response(stream_with_context(generator()), mimetype='application/x-ndjson')

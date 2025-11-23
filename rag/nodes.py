@@ -13,6 +13,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from utils.logging import Logging
+from langchain_core.runnables import RunnableConfig
 
 load_dotenv()
 logging = Logging()
@@ -49,10 +50,12 @@ def _get_doc_metadata(doc):
 
 def document_retrieval_required(state: RAGState) -> RAGState:
     """Retrieves the required documents for the question."""
+    logging.log_info("--- NODE: Document Retrieval Required ---")
     retrieval_required = retrieval_required_chain(state["question"])
     return {"retrieval_required": retrieval_required}
 
 def retrieve_documents(state: RAGState) -> RAGState:
+    logging.log_info("--- NODE: Retrieve Documents ---")
     logging.log_info("Retrieving documents...")
     
     # Use improved question if available
@@ -72,10 +75,11 @@ def retrieve_documents(state: RAGState) -> RAGState:
             retrieved_at=datetime.now()
         ) for doc in raw_docs
     ]
-    logging.log_info("Documents retrieved successfully.")
+    logging.log_info(f"Documents retrieved successfully. Count: {len(retrieved_docs)}")
     return {"retrieved_documents": retrieved_docs, "search_queries": [query_text]}
 
 def grade_documents(state: RAGState) -> RAGState:
+    logging.log_info("--- NODE: Grade Documents ---")
     logging.log_info("Grading documents...")
     doc_strings = [_get_doc_content(doc) for doc in state["retrieved_documents"]]
     grade = grade_documents_chain(state["question"], doc_strings)
@@ -87,36 +91,46 @@ def grade_documents(state: RAGState) -> RAGState:
         elif hasattr(doc, "retrieval_grade"):
             doc.retrieval_grade = grade
             
-    logging.log_info("Documents graded successfully.")
+    logging.log_info(f"Documents graded. Grade: {grade}")
     return {"retrieved_documents": state["retrieved_documents"]}
 
 def check_retrieval_required(state: RAGState):
     """Checks if retrieval is required and handles inappropriate questions."""
+    logging.log_info("--- EDGE: Check Retrieval Required ---")
     logging.log_info("Checking if retrieval is required...")
     retrieval_required_obj = state.get("retrieval_required")
     
     if retrieval_required_obj is None:
-        logging.log_info("Retrieval is not required.")
+        logging.log_info("DECISION: Retrieval NOT required (Default)")
         return False
     
     if retrieval_required_obj.inappropriate_question:
-        logging.log_info("Question is inappropriate.")
+        logging.log_info("DECISION: Question is Inappropriate -> Handle Inappropriate")
         return "inappropriate"
     
     if retrieval_required_obj.retrieval_required:
-        logging.log_info("Retrieval is required.")
+        logging.log_info("DECISION: Retrieval Required -> Retrieve Documents")
         return True
     
-    logging.log_info("Retrieval is not required.")
+    logging.log_info("DECISION: Retrieval NOT required -> Generate Answer")
     return False
+
     
-def generate_answer(state: RAGState) -> RAGState:
+def generate_answer(state: RAGState, config: RunnableConfig) -> RAGState:
     """Generates an answer for the question."""
+    logging.log_info("--- NODE: Generate Answer ---")
     logging.log_info("Generating answer...")
     doc_dicts = [_get_doc_metadata(doc) for doc in state.get("retrieved_documents", [])]
     
-    logging.log_info("Documents formatted successfully.")
-    answer_message = generate_answer_chain(state["question"], doc_dicts)
+    logging.log_info(f"Formatting {len(doc_dicts)} documents for the prompt.")
+    
+    callbacks = []
+    if config and "configurable" in config:
+        stream_callback = config["configurable"].get("stream_callback")
+        if stream_callback:
+            callbacks = [stream_callback]
+            
+    answer_message = generate_answer_chain(state["question"], doc_dicts, callbacks=callbacks)
     
     answer_content = answer_message.content if hasattr(answer_message, 'content') else str(answer_message)
     logging.log_info("Answer generated successfully.")
@@ -124,6 +138,7 @@ def generate_answer(state: RAGState) -> RAGState:
 
 def handle_inappropriate_question(state: RAGState) -> RAGState:
     """Handles inappropriate questions by returning a polite refusal."""
+    logging.log_info("--- NODE: Handle Inappropriate Question ---")
     logging.log_info("Handling inappropriate question...")
     inappropriate_response = (
         "I'm sorry, but I cannot assist with that question as it appears to be "

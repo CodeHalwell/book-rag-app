@@ -30,10 +30,11 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         return user
     return None
 
-def create_chat_entry(db: Session, user_id: int, question: str, answer: str) -> ChatHistory:
+def create_chat_entry(db: Session, user_id: int, question: str, answer: str, session_id: str) -> ChatHistory:
     """Saves a new Q&A pair to the history."""
     chat_entry = ChatHistory(
         user_id=user_id,
+        session_id=session_id,
         question=question,
         answer=answer
     )

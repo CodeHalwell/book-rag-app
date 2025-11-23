@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from prompts.retrieval_question import RETRIEVAL_QUESTION_SYSTEM_PROMPT
 from prompts.grade_documents import GRADE_DOCUMENTS_SYSTEM_PROMPT
-from prompts.generate_answer import GENERATE_ANSWER_SYSTEM_PROMPT
+from prompts.generate_answer import GENERATE_ANSWER_SYSTEM_PROMPT, GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT
 from schema.models import RetrievalRequired, RetrievalGrade
 from utils.logging import Logging
 
@@ -39,6 +39,7 @@ answer_generation_llm = ChatOpenAI(
     temperature=0, 
     api_key=os.getenv("OPENAI_API_KEY"),
     reasoning_effort="medium",
+    streaming=True,
 )
 logging.log_info("LLMs initialised.")
 
@@ -84,12 +85,13 @@ def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
     return grade_documents_chain.invoke({"question": question, "retrieved_documents": retrieved_documents})
 
 
-def generate_answer_chain(question: str, retrieved_documents: list[dict]) -> str:
+def generate_answer_chain(question: str, retrieved_documents: list[dict], callbacks: list = None) -> str:
     """Generates an answer for the question.
     
     Args:
         question: The question to generate an answer for.
         retrieved_documents: List of document dicts with 'content', 'source_name', and 'source_page' keys.
+        callbacks: Optional list of callbacks to pass to the chain invoke.
     Returns:
         A string answer.
     """
@@ -106,19 +108,19 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict]) -> str
             ("user", "Documents:\n{documents}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
-        generate_answer_chain = generate_answer_prompt | answer_generation_llm
+        chain = generate_answer_prompt | answer_generation_llm
         logging.log_info("Answer generation chain initialised.")
-        return generate_answer_chain.invoke({"question": question, "documents": documents_text})
+        return chain.invoke({"question": question, "documents": documents_text}, config={"callbacks": callbacks})
     else:
         # No documents - just ask the question
         messages = [
-            ("system", GENERATE_ANSWER_SYSTEM_PROMPT),
+            ("system", GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT),
             ("user", "{question}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
-        generate_answer_chain = generate_answer_prompt | answer_generation_llm
+        chain = generate_answer_prompt | answer_generation_llm
         logging.log_info("Answer generation chain initialised.")
-        return generate_answer_chain.invoke({"question": question})
+        return chain.invoke({"question": question}, config={"callbacks": callbacks})
 
 if __name__ == "__main__":
     question = "Hello, What is the capital of France?"

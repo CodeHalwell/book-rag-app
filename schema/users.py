@@ -22,6 +22,7 @@ class ChatHistory(Base):
     __tablename__ = 'chat_history'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    session_id = Column(String, nullable=False, index=True)
     question = Column(String, nullable=False)
     answer = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now, index=True)
