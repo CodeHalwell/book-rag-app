@@ -33,7 +33,7 @@ class VectorStore:
             embedding_function=embeddings,
             persist_directory=self.db_path,
         )
-        print(f"Vector store initialised successfully.")
+        print("Vector store initialised successfully.")
 
 
     def upsert_documents(self) -> None:
@@ -56,7 +56,7 @@ class VectorStore:
             total_batches = (total_docs + batch_size - 1) // batch_size
             
             print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} documents)...")
-            self.vector_store.add_documents(tqdm.tqdm(batch, desc="Adding documents"))
+            self.vector_store.add_documents(batch)
         
         print(f"Successfully added all {total_docs} documents to the vector store.")
 

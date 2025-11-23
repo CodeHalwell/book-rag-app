@@ -49,18 +49,25 @@ def build_graph() -> StateGraph:
     graph.add_edge("generate_answer", END)
     graph.add_edge("handle_inappropriate_question", END)
 
+    # graph.draw_mermaid_png("rag_graph.png")
+
     compiled_graph = graph.compile()
+    
+    try:
+        compiled_graph.get_graph().draw_mermaid_png(output_file_path="LanggraphFlow.png")
+    except Exception as e:
+        logger.warning(f"Could not draw graph: {e}")
 
     return compiled_graph
 
 
 if __name__ == "__main__":
     graph = build_graph()
-    inappropriate_question_result = graph.invoke({"question": "Your a horrible piece of shit?"})
+    """inappropriate_question_result = graph.invoke({"question": "Your a horrible piece of shit?"})
     print(inappropriate_question_result)
     simple_question_result = graph.invoke({"question": "What is the capital of France?"})
     print(simple_question_result)
     greeting_question_result = graph.invoke({"question": "Hello, how are you?"})
     print(greeting_question_result)
     ai_question_result = graph.invoke({"question": "Tell me how I can protect my application from prompt injection?"})
-    print(ai_question_result)
+    print(ai_question_result)"""

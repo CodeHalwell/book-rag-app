@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import TypedDict, Optional, Annotated
+from typing import TypedDict, Optional
 from langchain_core.messages import BaseMessage
 from datetime import datetime
 
@@ -28,12 +28,12 @@ class RetrievalRequired(BaseModel):
     inappropriate_question: bool = Field(description="Whether the question is inappropriate or not")
     improved_question: str = Field(description="An improved question that is appropriate and relevant to the user's question")
 
-class RAGState(TypedDict):
+class RAGState(TypedDict, total=False):
     question: str
     retrieved_documents: list[RetrievedDocument]
     messages: list[BaseMessage]
     answer: str
     search_queries: list[str]
     retrieval_time: float
-    retrieval_required: Optional[RetrievalRequired] = None
+    retrieval_required: [RetrievalRequired]
 

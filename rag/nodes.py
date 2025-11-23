@@ -25,8 +25,10 @@ vector_store.initialise_vector_store()
 
 def _get_doc_content(doc):
     """Helper to safely extract content from a document."""
-    if isinstance(doc, str): return doc
-    if isinstance(doc, dict): return doc.get("content", "")
+    if isinstance(doc, str):
+        return doc
+    if isinstance(doc, dict):
+        return doc.get("content", "")
     return getattr(doc, "content", str(doc))
 
 def _get_doc_metadata(doc):

@@ -7,7 +7,6 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from prompts.retrieval_question import RETRIEVAL_QUESTION_SYSTEM_PROMPT
 from prompts.grade_documents import GRADE_DOCUMENTS_SYSTEM_PROMPT
