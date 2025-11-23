@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_wtf.csrf import CSRFProtect
-from app.routes import app_routes, limiter
+# from app.routes import app_routes, limiter
 import os
 import secrets
 from dotenv import load_dotenv
@@ -41,6 +41,9 @@ def create_app():
     
     # Enable CSRF protection
     CSRFProtect(app)
+    
+    # Import routes here to avoid circular import
+    from app.routes import app_routes, limiter
     
     # Initialize rate limiter
     limiter.init_app(app)

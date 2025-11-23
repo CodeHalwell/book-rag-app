@@ -35,3 +35,8 @@ dev = [
 
 [tool.ruff]
 lint.ignore = ["E402"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+]

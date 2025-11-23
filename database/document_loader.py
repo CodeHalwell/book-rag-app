@@ -49,9 +49,14 @@ class DocumentLoader:
         # Remove NUL bytes which also cause issues
         text = text.replace('\x00', '')
 
+        # Normalize newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
+        
+        # Normalize whitespace but preserve newlines
+        # Replace multiple spaces/tabs with a single space
+        text = re.sub(r'[ \t]+', ' ', text)
+        
+        return text.strip()
 
     def split_documents(self, documents: list[Document]) -> list[Document]:
         """Splits documents into overlapping chunks.

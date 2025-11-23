@@ -1,4 +1,14 @@
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from database.create_user_db import init_db
+from database.connection import SessionLocal, engine
+from schema.users import Base, User, ChatHistory
 from utils.crud import (
     create_user, 
     get_user_by_email, 
@@ -12,8 +22,22 @@ import pytest
 
 @pytest.fixture(scope="session")
 def db():   
-    """Creates a test database."""
-    return init_db()
+    """Creates a test database and returns a session."""
+    # Create tables
+    Base.metadata.create_all(bind=engine)
+    
+    session = SessionLocal()
+    
+    # Clean up any existing data before starting tests
+    session.query(User).delete()
+    session.commit()
+    
+    try:
+        yield session
+    finally:
+        session.close()
+        # Optional: Drop tables after tests
+        # Base.metadata.drop_all(bind=engine)
 
 def test_create_user(db):
     """Tests the create_user function."""

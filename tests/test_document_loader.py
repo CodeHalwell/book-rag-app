@@ -1,4 +1,12 @@
 """Tests for document loader."""
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from database.document_loader import DocumentLoader
 
 def test_clean_text_removes_excessive_newlines():

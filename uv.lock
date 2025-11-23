@@ -296,6 +296,11 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
@@ -322,6 +327,9 @@ requires-dist = [
     { name = "werkzeug", specifier = ">=3.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.1" }]
 
 [[package]]
 name = "build"
