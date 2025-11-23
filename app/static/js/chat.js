@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatBtn = document.getElementById('new-chat-btn');
 
     // Generate or retrieve session ID
+    // We need a way to group chat messages together, so we use a session ID.
+    // If one doesn't exist, we create it.
     let currentSessionId = localStorage.getItem('bookrag_session_id');
     if (!currentSessionId) {
         currentSessionId = crypto.randomUUID();
@@ -13,12 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // New Chat Button Logic
+    // Wipes the slate clean. New session ID, new empty chat window.
     newChatBtn.addEventListener('click', () => {
         // 1. Generate new Session ID
         currentSessionId = crypto.randomUUID();
         localStorage.setItem('bookrag_session_id', currentSessionId);
 
         // 2. Clear Chat Interface
+        // Just a simple HTML replacement to reset the view.
         chatContainer.innerHTML = `
         <div class="flex justify-start message-appear">
             <div class="flex flex-col space-y-1 max-w-[80%]">
@@ -34,17 +38,19 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         `;
         
-        // 3. Focus Input
+        // 3. Focus Input so the user can start typing immediately
         userInput.focus();
     });
 
     // Auto-resize textarea
+    // Makes the input box grow as you type, up to a limit.
     userInput.addEventListener('input', function() {
         this.style.height = '56px';
         this.style.height = Math.min(Math.max(this.scrollHeight, 56), 150) + 'px';
     });
 
     // Handle Enter key to submit
+    // Pressing Enter sends the message, Shift+Enter adds a new line. Standard stuff.
     userInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -92,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function appendLoader() {
+        // Shows those little bouncing dots while the AI is thinking.
         const loaderId = 'loader-' + Date.now();
         const wrapperDiv = document.createElement('div');
         wrapperDiv.id = loaderId;
@@ -138,11 +145,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Add Loader
         const loaderId = appendLoader();
 
-        // Get CSRF token
+        // Get CSRF token because security is cool
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
         try {
             // 3. Send to Backend
+            // We use fetch to send the message and start the stream.
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: { 
@@ -155,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            // 4. Remove Loader
+            // 4. Remove Loader - AI is ready to speak
             document.getElementById(loaderId).remove();
 
             // 5. Create AI Message Bubble
@@ -163,10 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let fullAnswer = "";
 
             // 6. Handle Streaming Response
+            // This is where the magic happens. We read the stream chunk by chunk.
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
-            // Configure marked options
+            // Configure marked options for pretty markdown
             marked.setOptions({
                 highlight: function(code, lang) {
                     if (lang && hljs.getLanguage(lang)) {
@@ -200,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Update UI with markdown parsed content
+                // Re-render the whole thing as markdown each time we get new text.
                 aiMsgDiv.innerHTML = marked.parse(fullAnswer);
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }

@@ -34,6 +34,11 @@ class StreamHandler(BaseCallbackHandler):
 
 @app_routes.route('/', methods=['GET'])
 def index():
+    """
+    The home page. 
+    Loads up the chat history and renders the main UI.
+    If it's dev mode and no user exists, we create a dummy user so you don't have to login.
+    """
     with get_db() as db:
         # TODO: Replace with proper session-based auth
         user_id = session.get('user_id', 1)
@@ -51,6 +56,11 @@ def index():
 @app_routes.route('/chat', methods=['POST'])
 @limiter.limit("10 per minute")
 def chat():
+    """
+    The main chat endpoint.
+    Handles the user's message, runs the RAG graph, and streams the response back.
+    It's a bit complex because of the streaming, but it keeps the UI snappy.
+    """
     data = request.json
     user_query = data.get('query')
     session_id = data.get('session_id')
@@ -68,6 +78,10 @@ def chat():
     handler = StreamHandler(q)
 
     def task():
+        """
+        Worker function that runs in a separate thread.
+        It invokes the RAG graph and puts tokens into the queue as they are generated.
+        """
         try:
             result = rag_graph.invoke(
                 {"question": user_query},
@@ -80,7 +94,7 @@ def chat():
             if not handler.streamed:
                 q.put(answer)
 
-            # Save to DB
+            # Save to DB so we remember this conversation later
             with get_db() as db:
                 create_chat_entry(db, user_id, user_query, answer, session_id)
             
@@ -97,6 +111,10 @@ def chat():
             q.put(None)
 
     def generator():
+        """
+        Yields chunks of data from the queue to the client.
+        This allows the browser to display the answer piece by piece.
+        """
         thread = Thread(target=task)
         thread.start()
 

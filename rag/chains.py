@@ -44,12 +44,14 @@ answer_generation_llm = ChatOpenAI(
 logging.log_info("LLMs initialised.")
 
 def retrieval_required_chain(question: str) -> str:
-    """Retrieves the required documents for the question.
+    """
+    Decides if we need to fetch docs.
+    It's essentially asking: "Do I know this off the top of my head, or do I need to look it up?"
     
     Args:
-        question: The question to retrieve the required documents for.
+        question: The user's burning question.
     Returns:
-        A RetrievalRequired object.
+        A RetrievalRequired object (yes/no and maybe an improved question).
     """
 
     logging.log_info("Initialising retrieval required chain...")
@@ -64,11 +66,13 @@ def retrieval_required_chain(question: str) -> str:
     return retrieval_question_chain.invoke({"question": question})
 
 def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
-    """Grades the documents for the question.
+    """
+    Grades the documents we found.
+    We don't want to feed garbage to the LLM, so we filter out the irrelevant stuff here.
     
     Args:
-        question: The question to grade the documents for.
-        retrieved_documents: The retrieved documents to grade.
+        question: What the user asked.
+        retrieved_documents: The raw text chunks we found.
     Returns:
         A RetrievalGrade object.
     """
@@ -86,14 +90,16 @@ def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
 
 
 def generate_answer_chain(question: str, retrieved_documents: list[dict], callbacks: list = None) -> str:
-    """Generates an answer for the question.
+    """
+    The final step: crafting the answer.
+    We take the question and the best docs we found, and ask the LLM to write a response.
     
     Args:
-        question: The question to generate an answer for.
-        retrieved_documents: List of document dicts with 'content', 'source_name', and 'source_page' keys.
-        callbacks: Optional list of callbacks to pass to the chain invoke.
+        question: The user's question.
+        retrieved_documents: The chosen few documents that made the cut.
+        callbacks: For streaming, if we're feeling fancy.
     Returns:
-        A string answer.
+        The final answer string.
     """
     # Format documents for the prompt with source information
     logging.log_info("Formatting documents for the prompt...")
@@ -113,6 +119,7 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict], callba
         return chain.invoke({"question": question, "documents": documents_text}, config={"callbacks": callbacks})
     else:
         # No documents - just ask the question
+        # Sometimes the user just says "hello", so we don't need to force-feed them documents.
         messages = [
             ("system", GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT),
             ("user", "{question}"),

@@ -19,6 +19,11 @@ logging = Logging()
 rag_graph = build_graph()
 
 async def generate_answers():
+    """
+    The engine room for our evaluation.
+    This script feeds questions from a CSV into our RAG pipeline, collects the answers
+    and the documents we used, and saves it all for grading.
+    """
     input_path = "evaluation/data/ragas_data.csv"
     if not os.path.exists(input_path):
         logging.log_error(f"Input file not found: {input_path}")
@@ -47,12 +52,14 @@ async def generate_answers():
         
         try:
             # Invoke RAG graph
+            # Here we go! Sending the question into the machine.
             res = await rag_graph.ainvoke({"question": question})
             answer = res.get("answer", "No answer generated")
             
             generated_answers.append(answer)
             
             # Extract contexts
+            # We need to know exactly what texts the model looked at to generate the answer.
             docs = res.get("retrieved_documents", [])
             current_contexts = []
             for d in docs:

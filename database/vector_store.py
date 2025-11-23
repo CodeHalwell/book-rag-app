@@ -23,7 +23,11 @@ class VectorStore:
         self.db_path = db_path
     
     def initialise_vector_store(self) -> None:
-        """Initialises the vector store."""
+        """
+        Wakes up the vector store.
+        If it's not there, Chroma will create it. If it is, we just load it.
+        It's like opening the library doors.
+        """
         embeddings = OpenAIEmbeddings(
             model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
             api_key=os.getenv("OPENAI_API_KEY"),
@@ -38,8 +42,8 @@ class VectorStore:
 
     def upsert_documents(self) -> None:
         """
-        Upserts documents into the vector store.
-        The documents are preprocessed and then added to the vector store in batches.
+        Stuffs the vector store with knowledge.
+        We process the docs, batch them up (because Chroma gets full), and shove them in.
         """
         loader = DocumentLoader(self.directory)
         documents = loader.preprocess_documents()
@@ -63,16 +67,16 @@ class VectorStore:
 
     def get_retriever(self, search_type: str = "mmr", k: int = 4, fetch_k: int = 20, lambda_mult: float = 0.5):
         """
-        Returns a retriever with configurable search type (default: MMR).
+        Returns a tool to fetch documents.
         
-        MMR (Maximal Marginal Relevance) optimizes for both similarity to query 
-        AND diversity among selected documents.
+        MMR (Maximal Marginal Relevance) is the default because it tries to find distinct info
+        rather than just giving you 5 versions of the same paragraph.
         
         Args:
-            search_type: "mmr", "similarity", or "similarity_score_threshold"
-            k: Number of documents to return
-            fetch_k: Amount of docs to fetch to pass to MMR algorithm (mmr only)
-            lambda_mult: 0.5 = balance between relevance and diversity (mmr only)
+            search_type: How to search (MMR is usually best).
+            k: How many docs you want.
+            fetch_k: How many to look at before picking the best ones (for MMR).
+            lambda_mult: Diversity vs Relevance slider.
         """
         search_kwargs = {"k": k}
         if search_type == "mmr":
@@ -88,7 +92,8 @@ class VectorStore:
 
     def query_vector_store(self, query: str, k: int = 6):
         """
-        Direct query using MMR by default for better results.
+        Simple direct query. 
+        Uses MMR to keep things fresh and diverse.
         """
         return self.vector_store.max_marginal_relevance_search(
             query,

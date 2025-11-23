@@ -35,6 +35,10 @@ logging = Logging()
 
 @dataclass
 class RefusalScore(MetricWithLLM, SingleTurnMetric):
+    """
+    A custom metric to check if our AI knows when to say 'no'.
+    If the user asks for something bad, we want a polite refusal, not a how-to guide.
+    """
     name: str = "refusal_score"
     _required_columns: t.Dict[MetricType, t.Set[str]] = field(
         default_factory=lambda: {MetricType.SINGLE_TURN: {"user_input", "response"}}
@@ -68,6 +72,13 @@ noise_sensitivity_irrelevant = NoiseSensitivity(name="noise_sensitivity_irreleva
 noise_sensitivity_relevant = NoiseSensitivity(name="noise_sensitivity_relevant", mode="relevant")
 
 async def run_evaluation():
+    """
+    The big test.
+    We take a CSV of questions, run them through Ragas, and see how we did.
+    We split the test into two parts:
+    1. RAG: Can we answer questions based on documents?
+    2. Chat/Safety: Can we handle small talk and refuse harmful queries?
+    """
     input_path = "evaluation/data/ragas_data_with_answers.csv"
     if not os.path.exists(input_path):
         logging.log_error(f"Input file not found: {input_path}")
@@ -112,6 +123,7 @@ async def run_evaluation():
     print(f"Embeddings Type: {type(embeddings)}")
 
     # Helper to check if target text is "real" (for splitting RAG vs Chat)
+    # If there's a target text, it's a RAG question. If not, it's just chat.
     def has_target_text(val):
         if pd.isna(val):
             return False

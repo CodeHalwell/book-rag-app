@@ -25,7 +25,11 @@ vector_store = VectorStore(
 vector_store.initialise_vector_store()
 
 def _get_doc_content(doc):
-    """Helper to safely extract content from a document."""
+    """
+    Extracts the juicy content from a document, safely handling different formats.
+    If it's a dictionary, we grab 'content'. If it's an object, we look for a 'content' attribute.
+    If it's just a string, well, that's easy.
+    """
     if isinstance(doc, str):
         return doc
     if isinstance(doc, dict):
@@ -33,7 +37,10 @@ def _get_doc_content(doc):
     return getattr(doc, "content", str(doc))
 
 def _get_doc_metadata(doc):
-    """Helper to safely extract metadata from a document."""
+    """
+    Digs out the metadata (source, page number) so we can cite our sources properly.
+    Nobody likes a claim without a citation, right?
+    """
     if isinstance(doc, str):
         return {"content": doc, "source_name": "unknown", "source_page": 0}
     if isinstance(doc, dict):
@@ -49,13 +56,21 @@ def _get_doc_metadata(doc):
     }
 
 def document_retrieval_required(state: RAGState) -> RAGState:
-    """Retrieves the required documents for the question."""
+    """
+    Decides if we actually need to go digging through the vector database.
+    Sometimes the user just wants to say 'hi', and we don't need to read 50 docs for that.
+    """
     logging.log_info("--- NODE: Document Retrieval Required ---")
     retrieval_required = retrieval_required_chain(state["question"])
     return {"retrieval_required": retrieval_required}
 
 def retrieve_documents(state: RAGState) -> RAGState:
+    """
+    The heavy lifting. This node dives into the vector store and pulls out the most relevant chunks of text.
+    It's like a librarian fetching the exact books you need.
+    """
     logging.log_info("--- NODE: Retrieve Documents ---")
+
     logging.log_info("Retrieving documents...")
     
     # Use improved question if available
@@ -79,6 +94,10 @@ def retrieve_documents(state: RAGState) -> RAGState:
     return {"retrieved_documents": retrieved_docs, "search_queries": [query_text]}
 
 def grade_documents(state: RAGState) -> RAGState:
+    """
+    Quality control. We take a look at what we retrieved and give it a grade.
+    Are these documents actually useful, or did we just find some random noise?
+    """
     logging.log_info("--- NODE: Grade Documents ---")
     logging.log_info("Grading documents...")
     doc_strings = [_get_doc_content(doc) for doc in state["retrieved_documents"]]
@@ -95,7 +114,13 @@ def grade_documents(state: RAGState) -> RAGState:
     return {"retrieved_documents": state["retrieved_documents"]}
 
 def check_retrieval_required(state: RAGState):
-    """Checks if retrieval is required and handles inappropriate questions."""
+    """
+    Traffic cop logic. 
+    Based on what the 'retrieval_required' node said, we decide where to go next.
+    - Inappropriate? -> Shut it down politely.
+    - Needs docs? -> Go get 'em.
+    - Just chatting? -> Skip straight to the answer.
+    """
     logging.log_info("--- EDGE: Check Retrieval Required ---")
     logging.log_info("Checking if retrieval is required...")
     retrieval_required_obj = state.get("retrieval_required")
@@ -117,7 +142,10 @@ def check_retrieval_required(state: RAGState):
 
     
 def generate_answer(state: RAGState, config: RunnableConfig) -> RAGState:
-    """Generates an answer for the question."""
+    """
+    The grand finale. We take the question and (optionally) the docs, and craft a beautiful answer.
+    If we're streaming, we hook up the callbacks here so the user sees text flying onto the screen.
+    """
     logging.log_info("--- NODE: Generate Answer ---")
     logging.log_info("Generating answer...")
     doc_dicts = [_get_doc_metadata(doc) for doc in state.get("retrieved_documents", [])]
@@ -137,7 +165,9 @@ def generate_answer(state: RAGState, config: RunnableConfig) -> RAGState:
     return {"answer": answer_content}
 
 def handle_inappropriate_question(state: RAGState) -> RAGState:
-    """Handles inappropriate questions by returning a polite refusal."""
+    """
+    The bouncer node. If someone asks something naughty, we politely show them the door.
+    """
     logging.log_info("--- NODE: Handle Inappropriate Question ---")
     logging.log_info("Handling inappropriate question...")
     inappropriate_response = (
