@@ -27,6 +27,10 @@ def validate_environment():
 def create_app():
     validate_environment()
     
+    # Initialize database tables
+    from database.create_user_db import init_db
+    init_db()
+    
     # Explicitly set template and static folders since app.py is in root but resources are in app/
     app = Flask(__name__, template_folder='app/templates', static_folder='app/static')
     
@@ -52,7 +56,9 @@ def create_app():
     app.register_blueprint(app_routes)
     return app
 
+# Create app instance for Flask CLI discovery (flask run)
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     debug = os.getenv('CURRENT_STATE', 'development') != 'production'
     app.run(debug=debug)

@@ -28,10 +28,6 @@ htmlcov/
 dist/
 build/
 
-# Database (don't include local DBs in image)
-*.db
-db/
-
 # Evaluation data (large files)
 evaluation/data/*.csv
 evaluation/results/
@@ -44,4 +40,6 @@ evaluation/results/
 .DS_Store
 Thumbs.db
 *.log
+
+book_collection/
 
