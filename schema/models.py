@@ -35,5 +35,5 @@ class RAGState(TypedDict, total=False):
     answer: str
     search_queries: list[str]
     retrieval_time: float
-    retrieval_required: [RetrievalRequired]
+    retrieval_required: RetrievalRequired
 
