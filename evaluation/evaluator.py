@@ -23,7 +23,7 @@ from ragas.metrics import (
 )
 from ragas.metrics.base import MetricWithLLM, SingleTurnMetric, MetricType
 from ragas.dataset_schema import SingleTurnSample
-from ragas.llms import llm_factory, LangchainLLMWrapper
+from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
 from dotenv import load_dotenv
 from utils.logging import Logging
