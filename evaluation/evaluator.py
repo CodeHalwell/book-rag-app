@@ -23,12 +23,13 @@ from ragas.metrics import (
 )
 from ragas.metrics.base import MetricWithLLM, SingleTurnMetric, MetricType
 from ragas.dataset_schema import SingleTurnSample
-from ragas.llms import LangchainLLMWrapper
-from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.llms import llm_factory, LangchainLLMWrapper
+from ragas.embeddings import embedding_factory, LangchainEmbeddingsWrapper
 from dotenv import load_dotenv
 from utils.logging import Logging
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompt_values import StringPromptValue
+from evaluation.generate_answers import generate_answers
 
 load_dotenv()
 logging = Logging()
@@ -36,7 +37,7 @@ logging = Logging()
 @dataclass
 class RefusalScore(MetricWithLLM, SingleTurnMetric):
     """
-    A custom metric to check if our AI knows when to say 'no'.
+    A custom metric to check if the AI knows when to say 'no'.
     If the user asks for something bad, we want a polite refusal, not a how-to guide.
     """
     name: str = "refusal_score"
@@ -67,11 +68,48 @@ class RefusalScore(MetricWithLLM, SingleTurnMetric):
         except Exception:
             return 0.0
 
+def overall_summary(rag_results: dict, chat_results: dict) -> None:
+    """
+    Overall summary of the evaluation results.
+
+    Args:
+        rag_results: The results of the RAG evaluation.
+        chat_results: The results of the Chat/Safety evaluation.
+
+    Returns:
+        None
+    """
+    openai_model = ChatOpenAI(model="gpt-5-mini", api_key=os.getenv("OPENAI_API_KEY"), reasoning_effort="medium", temperature=1.0)
+    summary = openai_model.invoke(f"""
+    You are a helpful assistant that summarises the evaluation results of a RAG system.
+    You will be given the results of the RAG evaluation and the Chat/Safety evaluation.
+    You will need to summarise the results of the evaluation.
+    You will need to include the following:
+    - The overall score of the RAG evaluation.
+    - The overall score of the Chat/Safety evaluation.
+    - The overall score of the evaluation.
+    RAG Results:
+    {rag_results}
+    Chat Results:
+    {chat_results}
+    Provide a detailed explanation of the results of the evaluation in a way that is easy to understand for a non-technical audience.
+    The summary should be in a markdown format with headings and subheadings.
+    The summary should be concise and to the point, making sure there are suitable definitions for the metrics used.
+    Return ONLY the markdown summary.
+    """
+    )
+    summary = summary.content
+    with open("evaluation/results/overall_summary.md", "w", encoding="utf-8") as f:
+        f.write(summary)
+    print(f"Overall summary saved to evaluation/results/overall_summary.md")
+
+
+
 # Define Noise Sensitivity metrics
 noise_sensitivity_irrelevant = NoiseSensitivity(name="noise_sensitivity_irrelevant", mode="irrelevant")
 noise_sensitivity_relevant = NoiseSensitivity(name="noise_sensitivity_relevant", mode="relevant")
 
-async def run_evaluation():
+async def run_evaluation(should_generate_answers: bool = True, output_file: str = "evaluation/data/"):
     """
     The big test.
     We take a CSV of questions, run them through Ragas, and see how we did.
@@ -79,14 +117,16 @@ async def run_evaluation():
     1. RAG: Can we answer questions based on documents?
     2. Chat/Safety: Can we handle small talk and refuse harmful queries?
     """
-    input_path = "evaluation/data/ragas_data_with_answers.csv"
-    if not os.path.exists(input_path):
-        logging.log_error(f"Input file not found: {input_path}")
-        print(f"Error: File not found at {input_path}")
-        return
+    if should_generate_answers:
+        output_file = await generate_answers(output_path=output_file)
+    else:
+        if not os.path.exists(output_file):
+            logging.log_error(f"Output file not found: {output_file}")
+            print(f"Error: File not found at {output_file}")
+            return
 
-    logging.log_info(f"Loading data from {input_path}")
-    df = pd.read_csv(input_path)
+    logging.log_info(f"Loading data from {output_file}")
+    df = pd.read_csv(output_file)
     
     # Parse contexts from JSON string
     def parse_context(c):
@@ -112,7 +152,7 @@ async def run_evaluation():
     # client = AsyncOpenAI(api_key=api_key)
     
     # Use LangchainLLMWrapper manually to ensure correct LLM type
-    openai_model = ChatOpenAI(model="gpt-4o-mini", api_key=api_key)
+    openai_model = ChatOpenAI(model="gpt-4o", api_key=api_key)
     llm = LangchainLLMWrapper(openai_model)
     
     # Use LangchainEmbeddingsWrapper manually
@@ -159,7 +199,8 @@ async def run_evaluation():
             metrics=rag_metrics,
             llm=llm,
             embeddings=embeddings,
-            raise_exceptions=False
+            raise_exceptions=False,
+
         )
         print("RAG Score:", rag_results)
         
@@ -220,8 +261,11 @@ async def run_evaluation():
         else:
             print("Success: No false positive retrievals detected in Chat subset.")
 
+        # 5. Overall Summary
+    overall_summary(rag_results, chat_results)
+
     logging.log_info("Evaluation complete.")
 
 
 if __name__ == "__main__":
-    asyncio.run(run_evaluation())
+    asyncio.run(run_evaluation(should_generate_answers=True, output_file="evaluation/data/ragas_data_with_answers"))

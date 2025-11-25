@@ -5,6 +5,7 @@ import asyncio
 import pandas as pd
 import json
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -18,7 +19,7 @@ load_dotenv()
 logging = Logging()
 rag_graph = build_graph()
 
-async def generate_answers():
+async def generate_answers(output_path: str):
     """
     The engine room for our evaluation.
     This script feeds questions from a CSV into our RAG pipeline, collects the answers
@@ -84,15 +85,8 @@ async def generate_answers():
     df["generated_answer"] = generated_answers
     df["contexts"] = all_contexts
 
-    # Save to output file
-    output_path = "evaluation/data/ragas_data_with_answers.csv"
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
-    df.to_csv(output_path, index=False)
-    
-    print(f"\nSuccess! Generated answers and contexts saved to: {output_path}")
-    logging.log_info(f"Saved results with generated answers and contexts to {output_path}")
-
-if __name__ == "__main__":
-    asyncio.run(generate_answers())
+    output_file = f"{output_path}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(output_file, index=False)
+    print(f"\nSuccess! Generated answers and contexts saved to: {output_file}")
+    logging.log_info(f"Saved results with generated answers and contexts to {output_file}")
+    return output_file

@@ -6,8 +6,9 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+import asyncio
 from schema.models import RAGState, RetrievedDocument
-from rag.chains import retrieval_required_chain, grade_documents_chain, generate_answer_chain
+from rag.chains import retrieval_required_chain, grade_documents_chain, grade_documents_chain_async, generate_answer_chain
 from database.vector_store import VectorStore
 import os
 from datetime import datetime
@@ -80,7 +81,7 @@ def retrieve_documents(state: RAGState) -> RAGState:
         query_text = retrieval_req.improved_question
         logging.log_info(f"Using improved question for retrieval: {query_text}")
         
-    raw_docs = vector_store.query_vector_store(query_text, 6)
+    raw_docs = vector_store.query_vector_store(query_text, 10)
     retrieved_docs = [
         RetrievedDocument(
             content=doc.page_content,
@@ -93,25 +94,81 @@ def retrieve_documents(state: RAGState) -> RAGState:
     logging.log_info(f"Documents retrieved successfully. Count: {len(retrieved_docs)}")
     return {"retrieved_documents": retrieved_docs, "search_queries": [query_text]}
 
+async def _grade_single_document(question: str, doc: RetrievedDocument) -> RetrievedDocument:
+    """
+    Grade a single document asynchronously.
+    """
+    doc_content = _get_doc_content(doc)
+    grade = await grade_documents_chain_async(question, [doc_content])
+    doc.retrieval_grade = grade
+    return doc
+
+
 def grade_documents(state: RAGState) -> RAGState:
     """
     Quality control. We take a look at what we retrieved and give it a grade.
     Are these documents actually useful, or did we just find some random noise?
+    Filters out irrelevant documents and sorts the rest by quality score.
+    
+    Uses parallel async grading for better performance.
     """
     logging.log_info("--- NODE: Grade Documents ---")
-    logging.log_info("Grading documents...")
-    doc_strings = [_get_doc_content(doc) for doc in state["retrieved_documents"]]
-    grade = grade_documents_chain(state["question"], doc_strings)
+    logging.log_info("Grading documents in parallel...")
     
-    # Update documents with grades
-    for doc in state["retrieved_documents"]:
-        if isinstance(doc, dict):
-            doc["retrieval_grade"] = grade
-        elif hasattr(doc, "retrieval_grade"):
-            doc.retrieval_grade = grade
-            
-    logging.log_info(f"Documents graded. Grade: {grade}")
-    return {"retrieved_documents": state["retrieved_documents"]}
+    retrieved_docs = state["retrieved_documents"]
+    question = state["question"]
+    
+    # Grade all documents in parallel using asyncio
+    async def grade_all_documents():
+        tasks = [
+            _grade_single_document(question, doc) 
+            for doc in retrieved_docs
+        ]
+        return await asyncio.gather(*tasks)
+    
+    # Run the async grading - handle both cases where we're already in an event loop or not
+    try:
+        loop = asyncio.get_running_loop()
+        # We're already in an async context, create a new task
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            graded_docs = executor.submit(
+                asyncio.run, grade_all_documents()
+            ).result()
+    except RuntimeError:
+        # No event loop running, we can use asyncio.run directly
+        graded_docs = asyncio.run(grade_all_documents())
+    
+    # Log results
+    for doc in graded_docs:
+        logging.log_info(
+            f"Document graded: relevant={doc.retrieval_grade.relevant}, "
+            f"overall_score={doc.retrieval_grade.review.overall_score:.2f}"
+        )
+    
+    # Filter out irrelevant documents
+    relevant_docs = [
+        doc for doc in graded_docs 
+        if doc.retrieval_grade and doc.retrieval_grade.relevant
+    ]
+    
+    logging.log_info(f"Filtered: {len(relevant_docs)}/{len(graded_docs)} documents are relevant")
+    
+    # Sort by overall score (highest first)
+    relevant_docs.sort(
+        key=lambda d: d.retrieval_grade.review.overall_score if d.retrieval_grade else 0,
+        reverse=True
+    )
+    
+    if relevant_docs:
+        logging.log_info(
+            f"Documents sorted by quality. "
+            f"Top score: {relevant_docs[0].retrieval_grade.review.overall_score:.2f}"
+        )
+    else:
+        logging.log_info("No relevant documents found after filtering")
+    
+    return {"retrieved_documents": relevant_docs}
 
 def check_retrieval_required(state: RAGState):
     """

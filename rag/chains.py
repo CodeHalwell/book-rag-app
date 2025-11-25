@@ -38,7 +38,7 @@ answer_generation_llm = ChatOpenAI(
     model=os.getenv("ANSWER_GENERATE_LLM"), 
     temperature=0, 
     api_key=os.getenv("OPENAI_API_KEY"),
-    reasoning_effort="medium",
+    reasoning_effort="minimal",
     streaming=True,
 )
 logging.log_info("LLMs initialised.")
@@ -65,9 +65,9 @@ def retrieval_required_chain(question: str) -> str:
     retrieval_question_chain = retrieval_question_prompt | llm_structured_output
     return retrieval_question_chain.invoke({"question": question})
 
-def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
+def grade_documents_chain(question: str, retrieved_documents: list[str]) -> RetrievalGrade:
     """
-    Grades the documents we found.
+    Grades the documents we found (synchronous version).
     We don't want to feed garbage to the LLM, so we filter out the irrelevant stuff here.
     
     Args:
@@ -85,8 +85,28 @@ def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
     logging.log_info("Document grade LLM structured output initialised.")
     llm_structured_output = document_grade_llm.with_structured_output(RetrievalGrade)
     logging.log_info("Grade documents chain initialised.")
-    grade_documents_chain = grade_documents_prompt | llm_structured_output
-    return grade_documents_chain.invoke({"question": question, "retrieved_documents": retrieved_documents})
+    chain = grade_documents_prompt | llm_structured_output
+    return chain.invoke({"question": question, "retrieved_documents": retrieved_documents})
+
+
+async def grade_documents_chain_async(question: str, retrieved_documents: list[str]) -> RetrievalGrade:
+    """
+    Grades the documents we found (async version for parallel execution).
+    
+    Args:
+        question: What the user asked.
+        retrieved_documents: The raw text chunks we found.
+    Returns:
+        A RetrievalGrade object.
+    """
+    grade_documents_prompt = ChatPromptTemplate.from_messages([
+        ("system", GRADE_DOCUMENTS_SYSTEM_PROMPT),
+        ("user", "{question}"),
+        ("user", "{retrieved_documents}"),
+    ])
+    llm_structured_output = document_grade_llm.with_structured_output(RetrievalGrade)
+    chain = grade_documents_prompt | llm_structured_output
+    return await chain.ainvoke({"question": question, "retrieved_documents": retrieved_documents})
 
 
 def generate_answer_chain(question: str, retrieved_documents: list[dict], callbacks: list = None) -> str:
