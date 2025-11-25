@@ -128,7 +128,7 @@ def grade_documents(state: RAGState) -> RAGState:
     
     # Run the async grading - handle both cases where we're already in an event loop or not
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # We're already in an async context, create a new task
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
