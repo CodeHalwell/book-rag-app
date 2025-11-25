@@ -101,7 +101,7 @@ def overall_summary(rag_results: dict, chat_results: dict) -> None:
     summary = summary.content
     with open("evaluation/results/overall_summary.md", "w", encoding="utf-8") as f:
         f.write(summary)
-    print(f"Overall summary saved to evaluation/results/overall_summary.md")
+    print("Overall summary saved to evaluation/results/overall_summary.md")
 
 
 

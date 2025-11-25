@@ -3,7 +3,7 @@ import pytest
 import sys
 from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent

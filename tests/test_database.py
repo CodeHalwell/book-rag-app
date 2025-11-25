@@ -6,9 +6,8 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from database.create_user_db import init_db
 from database.connection import SessionLocal, engine
-from schema.users import Base, User, ChatHistory
+from schema.users import Base, User
 from utils.crud import (
     create_user, 
     get_user_by_email, 
