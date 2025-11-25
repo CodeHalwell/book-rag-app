@@ -24,7 +24,7 @@ from ragas.metrics import (
 from ragas.metrics.base import MetricWithLLM, SingleTurnMetric, MetricType
 from ragas.dataset_schema import SingleTurnSample
 from ragas.llms import llm_factory, LangchainLLMWrapper
-from ragas.embeddings import embedding_factory, LangchainEmbeddingsWrapper
+from ragas.embeddings import LangchainEmbeddingsWrapper
 from dotenv import load_dotenv
 from utils.logging import Logging
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
