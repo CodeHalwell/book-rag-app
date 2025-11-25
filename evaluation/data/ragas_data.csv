@@ -1,5 +1,25 @@
 ﻿Prompt,Target Text,Source,Expected Answer
-What are some automated tools and approaches for optimizing prompts in AI systems?,"Tools that aim to automate the whole prompt engineering workflow include Open Prompt (Ding et al., 2021) and DSPy (Khattab et al., 2023). At a high level, you spec ify the input and output formats, evaluation metrics, and evaluation data for your task. These prompt optimization tools automatically find a prompt or a chain of prompts that maximizes the evaluation metrics on the evaluation data. Functionally, these tools are similar to autoML (automated ML) tools that automatically find the optimal hyperparameters for classical ML models. A common approach to automating prompt generation is to use AI models. AI mod els themselves are capable of writing prompts.10 In its simplest form, you can ask a model to generate a prompt for your application, such as “Help me write a concise prompt for an application that grades college essays between 1 and 5”. You can also ask AI models to critique and improve your prompts or generate in-context exam ples. Figure 5-7 shows a prompt written by Claude 3.5 Sonnet (Anthropic, 2024). DeepMind’s Promptbreeder (Fernando et al., 2023) and Stanford’s TextGrad (Yuk sekgonul et al., 2024) are two examples of AI-powered prompt optimization tools. Promptbreeder leverages evolutionary strategy to selectively “breed” prompts. It starts with an initial prompt and uses an AI model to generate mutations to this prompt. The prompt mutation process is guided by a set of mutator prompts. It then generates mutations for the most promising mutation, and so on, until it finds a prompt that satisfies your criteria. Figure 5-8 shows how Promptbreeder works at a high level",aiengineering.pdf 230,"Tools like Open Prompt and DSPy automate prompt engineering by allowing users to specify input/output formats and evaluation metrics. These tools use AI models themselves to generate, critique, and improve prompts. Advanced approaches include Promptbreeder (using evolutionary strategies) and TextGrad, which leverage AI to iteratively optimize prompts for better performance."
+What are some automated tools and approaches for optimizing prompts in AI systems?,"Tools that aim to automate the whole prompt engineering workflow include Open Prompt (Ding et al., 2021) and DSPy (Khattab et al., 2023). At a high level, you spec ify the input and output formats, evaluation metrics, and evaluation data for your task. These prompt optimization tools automatically find a prompt or a chain of prompts that maximizes the evaluation metrics on the evaluation data. Functionally, these tools are similar to autoML (automated ML) tools that automatically find the optimal hyperparameters for classical ML models. A common approach to automating prompt generation is to use AI models. AI mod els themselves are capable of writing prompts.10 In its simplest form, you can ask a model to generate a prompt for your application, such as “Help me write a concise prompt for an application that grades college essays between 1 and 5”. You can also ask AI models to critique and improve your prompts or generate in-context exam ples. Figure 5-7 shows a prompt written by Claude 3.5 Sonnet (Anthropic, 2024). DeepMind’s Promptbreeder (Fernando et al., 2023) and Stanford’s TextGrad (Yuk sekgonul et al., 2024) are two examples of AI-powered prompt optimization tools. Promptbreeder leverages evolutionary strategy to selectively “breed” prompts. It starts with an initial prompt and uses an AI model to generate mutations to this prompt. The prompt mutation process is guided by a set of mutator prompts. It then generates mutations for the most promising mutation, and so on, until it finds a prompt that satisfies your criteria. Figure 5-8 shows how Promptbreeder works at a high level",aiengineering.pdf 230,"Tools like OpenPrompt and DSPy automate prompt engineering by letting users declare input/output formats, constraints, and evaluation metrics in code. These frameworks then use AI models themselves to generate, critique, and refine prompts, often in a closed-loop process driven by validation data.
+
+Beyond these, there’s a growing ecosystem of automatic prompt optimisation (APO) methods. Some systems treat prompt search as a black-box optimisation problem, using techniques like Bayesian optimisation or bandit algorithms to explore many prompt variants and keep the best-performing ones. Others integrate with evaluation harnesses (e.g. task-specific test sets, rubric-based LLM judges, or human-in-the-loop feedback) to score prompts at scale.
+
+More advanced research approaches include:
+
+Promptbreeder, which uses evolutionary strategies (mutation, crossover, selection) to “breed” better prompts over many generations.
+
+TextGrad and related “gradient-free” methods, which treat the model as a differentiable-ish black box and use its own textual feedback (or score signals) to iteratively update the prompt.
+
+Self-refinement / self-critique loops, where an LLM generates an answer, critiques it using another prompt (or another model), and then updates the original prompt or instructions based on the critique.
+
+In production settings, prompt optimisation is often combined with tooling and MLOps practices:
+
+Experiment tracking and A/B testing of prompt variants across real traffic.
+
+Dataset-driven prompt tuning, where prompts are optimised against a curated benchmark of real user queries and gold-standard outputs.
+
+Guardrail and policy-aware optimisation, where prompts are automatically rejected or revised if they increase safety or compliance risks.
+
+Finally, some systems blend prompt optimisation with lightweight parameter tuning (e.g. adapters, LoRA, or preference optimisation) so that the line between “prompt engineering” and “model fine-tuning” becomes more of a continuum. This allows organisations to start with automated prompt search and, where needed, progress towards training small task-specific adapters while reusing the same evaluation and optimisation pipeline."
 How does Tree-of-Thought prompting work in LangChain?," Tree-of-thought
  In Tree-of-Thought (ToT) prompting, we generate multiple problem-solving steps or approaches 
 for a given prompt and then use the AI model to critique them. The critique will be based on the 
@@ -7,7 +27,37 @@ model’s judgment of the solution’s suitability to the problem.
  There is actually an implementation now of ToT in the LangChain experimental package; however, 
 let’s walk through an instructive step-by-step example of implementing ToT using LangChain.
  First, we’ll define our four chain components with PromptTemplates. We need a solution template, 
-an evaluation template, a reasoning template, and a ranking template",generativeaiwithlangchain.pdf page 251,"Tree-of-Thought (ToT) prompting generates multiple problem-solving steps or approaches for a prompt, then uses the AI model to critique them based on solution suitability. In LangChain, it involves four chain components with PromptTemplates: solution template, evaluation template, reasoning template, and ranking template. This allows exploration of multiple reasoning paths."
+an evaluation template, a reasoning template, and a ranking template",generativeaiwithlangchain.pdf page 251,"Tree-of-Thought (ToT) prompting gets an AI model to explore multiple reasoning paths instead of committing to a single chain of thought. At each step, it generates several candidate “thoughts” (partial solutions or strategies), evaluates them, prunes weak branches, and continues expanding the promising ones until it finds a good answer.
+
+In LangChain, ToT isn’t a single magic class, but is typically built by composing multiple LLMChain (or LangGraph nodes) plus PromptTemplates into a search loop. A common pattern uses four main prompt templates:
+
+a solution / expansion template to propose new “thoughts” or next steps from the current state,
+
+an evaluation template to rate each candidate (e.g. correctness, feasibility, safety),
+
+a reasoning template to let the model explain its evaluation or refine the line of thought,
+
+a ranking / selection template to compare candidates and pick which branches to continue exploring.
+
+Around those chains, you write control logic (in Python) that:
+
+maintains the tree (nodes = states / partial solutions, edges = transitions / thoughts),
+
+chooses a search strategy (breadth-first, depth-first, beam search, etc.),
+
+repeatedly calls the expansion and evaluation chains to grow and prune branches,
+
+stops when a node satisfies some stopping criterion (e.g. high score, consistent answer, or max depth).
+
+In practice, LangChain’s extras help glue this together in a more “production-y” way:
+
+Callbacks and tracing (e.g. LangSmith) to see the whole tree expansion and debugging traces.
+
+Memory or state objects to carry intermediate context between thoughts.
+
+Tool calling / agents combined with ToT, where different branches might invoke different tools before being scored.
+
+The end result is that, rather than a single linear chain of thought, LangChain orchestrates a search over many possible reasoning paths, using the model both as a generator of candidate thoughts and as a critic that scores and ranks them. It’s basically “model as planner and reviewer”, wrapped in a tree search loop."
 What are common use cases for the PanResponder API in React Native?,"Use cases for the PanResponder API
  Because the fundamental functionality of PanResponder is to determine the current 
 touches happening on the user’s device, the use cases are unlimited. In my experience, 
@@ -35,8 +85,161 @@ Mount method. In this instance, you can then set all the configuration and callb
 methods for the PanResponder, using the methods to manipulate the state and View.
  Let’s look at the create method, which is the only available method for PanRe
 sponder. It creates the configuration for the PanResponder instance.  Table 9.8 shows 
-the configuration options available to the create method.  ",reactnativeinaction.pdf page 217,"PanResponder API is used for touch-based interactions including: creating swipeable card stacks (like Tinder), building animatable overlays that can be swiped away, and enabling drag-to-reorder functionality in lists. The API provides gesture event data including current position and accumulated differences from the original position through onPanResponderMove."
-How do you perform port scanning and service identification using Nmap in penetration testing?,"Identifying open ports, services, and operating systems After performing host discovery, the next step is to identify any open ports on the targeted system and determine which services are mapped to those open ports. There are various techniques that a pen etration tester can use to identify the open ports on a targeted system. Some techniques are manual, while others can simply be automated using the Nmap tool. To get started fingerprinting using Nmap, please use the following instructions: 1. Firstly, ensure the Kali Linux, Metasploitable 2 and Metasploitable 3 (Windows version) virtual machines are powered on. 2. On Kali Linux, open the Terminal and use the following commands to perform a basic Nmap scan to determine whether any of the top 1,000 ports are open on the Metasploitable 3 (Win dows version) virtual machine: kali@kali:~$ nmap 172.30.1.48 As shown in the following screenshot, Nmap indicates there are 20 TCP open ports and provides the name of their associated services:",ultimatekalilinuxbook.pdf page 216,"After host discovery, use Nmap to identify open ports and services on target systems. A basic scan command like ""nmap [target_ip]"" checks the top 1,000 ports. Nmap reports open TCP ports and their associated services. For example, scanning Metasploitable might reveal 20 open TCP ports with service names, enabling further security assessment."
+the configuration options available to the create method.  ",reactnativeinaction.pdf page 217,"PanResponder is a low-level gesture system in React Native that lets you track and respond to touch movements frame-by-frame. It’s often used when you need fine-grained control over gestures rather than relying on higher-level components.
+
+You already mentioned some core use cases:
+
+Swipeable card stacks (e.g. Tinder-style left/right swipes)
+
+Dismissible / swipeable overlays and panels
+
+Drag-to-reorder items in a list
+
+Those are spot on. You can widen the scope to include:
+
+Draggable UI elements in general
+
+Dragging map markers, chips, floating buttons, or custom handles.
+
+Moving shapes around in a canvas or game-like interface.
+
+Custom sliders and knobs
+
+Volume or brightness sliders that don’t fit the standard Slider component.
+
+Rotary controls (e.g. a circular knob or dial) where you convert gesture movement to an angle.
+
+Bottom sheets and drawers
+
+Pull-up / pull-down panels that track the user’s finger and then “snap” open or closed based on final position and velocity.
+
+Side drawers that can be dragged partially out and then released.
+
+Free-form drawing and sketching
+
+Capturing finger paths to draw lines, signatures, or annotations.
+
+Visualising touch trails for debugging or custom visual effects.
+
+Interactive animations tied to gestures
+
+Mapping gestureState.dx / dy directly to Animated.ValueXY to create smooth, physics-based interactions.
+
+Using the final velocity to trigger a fling / spring animation (e.g. snapping a card off-screen if released fast enough).
+
+Custom gesture resolution and conflict handling
+
+Situations where ScrollView or other components fight for touch ownership:
+
+For example, horizontally swiping a card inside a vertical list.
+
+Deciding, via onMoveShouldSetPanResponder and onPanResponderTerminationRequest, whether your component or a parent should “own” the gesture.
+
+Multi-touch / advanced gestures (when you really need control)
+
+While it’s more manual than libraries like react-native-gesture-handler, PanResponder can still be used to track multiple touches and build things like pinch-to-zoom or rotate, by inspecting the touches array yourself.
+
+Technically, PanResponder works by registering callbacks such as:
+
+onStartShouldSetPanResponder / onMoveShouldSetPanResponder to decide when to take control of a gesture.
+
+onPanResponderMove to receive continuous gesture updates, including:
+
+gestureState.moveX, moveY – current finger position
+
+gestureState.dx, dy – accumulated deltas from the start
+
+gestureState.vx, vy – velocities, handy for “fling” or “snap” behaviour
+
+onPanResponderRelease / onPanResponderTerminate to finalise the interaction and typically trigger a finishing animation or commit a state change.
+
+In practice, it’s often used together with Animated (or react-native-reanimated) to keep the UI at 60fps while the user drags things around. PanResponder is the raw “gesture signal”; your animation system is the muscles that actually move things."
+How do you perform port scanning and service identification using Nmap in penetration testing?,"Identifying open ports, services, and operating systems After performing host discovery, the next step is to identify any open ports on the targeted system and determine which services are mapped to those open ports. There are various techniques that a pen etration tester can use to identify the open ports on a targeted system. Some techniques are manual, while others can simply be automated using the Nmap tool. To get started fingerprinting using Nmap, please use the following instructions: 1. Firstly, ensure the Kali Linux, Metasploitable 2 and Metasploitable 3 (Windows version) virtual machines are powered on. 2. On Kali Linux, open the Terminal and use the following commands to perform a basic Nmap scan to determine whether any of the top 1,000 ports are open on the Metasploitable 3 (Win dows version) virtual machine: kali@kali:~$ nmap 172.30.1.48 As shown in the following screenshot, Nmap indicates there are 20 TCP open ports and provides the name of their associated services:",ultimatekalilinuxbook.pdf page 216,"After host discovery, Nmap is used to identify open ports, services, and sometimes OS / versions on target systems. A basic scan like:
+
+nmap <target_ip>
+
+
+scans the top 1,000 TCP ports and reports which are open, closed, or filtered, along with guessed service names (e.g. 80/tcp http, 22/tcp ssh). On something like Metasploitable, this might show 20+ open TCP ports plus their services, which then guide the rest of the security assessment.
+
+You can broaden this to a more “real” penetration-testing flow:
+
+1. Choose scan type (stealth vs simple)
+
+nmap -sS <target> – SYN “stealth” scan (very common in testing).
+
+nmap -sT <target> – TCP connect scan (more noisy but simpler, often default without privileges).
+
+nmap -sU <target> – UDP scan (for things like DNS, SNMP, DHCP; slower and more error-prone).
+
+2. Control which ports to scan
+
+-p 80,443,8080 – specific ports.
+
+-p 1-65535 – full port range (heavier, but thorough).
+
+--top-ports 100 – quickest look at the most common ports.
+
+3. Enable service and version detection
+To move beyond “port 80 is open” to “it’s Apache httpd 2.4.x on Ubuntu”, you use:
+
+nmap -sV <target>
+
+
+This sends probes to open ports and matches responses against Nmap’s service database, giving output such as:
+
+22/tcp open ssh OpenSSH 7.9p1
+
+3306/tcp open mysql MySQL 5.5.5-10.3.25-MariaDB
+
+Combining with ports: nmap -sV -p 1-65535 <target> gives a full service map.
+
+4. Use more in-depth scanning when appropriate
+
+nmap -A <target> – “aggressive” scan:
+
+Enables OS detection (-O)
+
+Version detection (-sV)
+
+Traceroute
+
+Default NSE (Nmap Scripting Engine) scripts
+
+This is handy on lab / test systems, but can be noisy and potentially disruptive on fragile production systems, so in real engagements it’s used selectively and with permission.
+
+5. Enrich results with NSE scripts
+NSE scripts let you go beyond basic identification to lightweight enumeration, e.g.:
+
+nmap -sV --script=vuln <target>
+nmap -sV --script=http-enum -p80,443 <target>
+
+
+These can:
+
+Enumerate HTTP directories, SSL info, or SSH host keys.
+
+Check for known, fingerprintable vulnerabilities on certain services.
+In a penetration test, this helps quickly spot misconfigurations and low-hanging fruit without going straight to full exploitation.
+
+6. Tuning for performance and safety
+
+-T0…-T5 – timing templates (slow & stealthy vs fast & noisy).
+
+--max-retries, --max-rate – limit how aggressively Nmap probes ports.
+
+Run first simple scans (e.g. nmap -sS --top-ports 100) to map the landscape, then deeper scans only where needed.
+
+7. Exporting and integrating results
+For real workflows, you usually export output:
+
+nmap -sV -oN scan.txt -oX scan.xml <target>
+
+
+Normal output (-oN) for human reading.
+
+XML / JSON output (-oX, -oJ) for feeding into other tools (reporting systems, vulnerability scanners, custom scripts).
+
+In a penetration testing context, Nmap’s role is to systematically map exposed services: which ports are open, what’s running on them, and roughly what versions/OS they are. That service inventory becomes the starting point for everything that follows: threat modelling, deeper enumeration, and eventually targeted testing of those specific services."
 What characterizes rack-based servers in warehouse-scale computers?,"Rack-based servers
  WSC servers are typically assembled in racks with each server consuming one 1U slot. A 1U server 
 slot has a front panel opening 19” wide and 1.75” high. One rack might contain as many as 40 
@@ -48,9 +251,107 @@ attempt to identify the performance parameters of a specific system configuratio
  Although each server contains a processor with integrated graphics and some USB ports, most 
 servers do not have a display, keyboard, or mouse directly connected, except perhaps during their 
 initial configuration. Rack-mounted servers generally operate in a so-called headless mode, in 
-which all interaction with the system takes place over its network connection",moderncomputerarchitectureandorganization.pdf page 354,"Rack-based servers in WSCs occupy 1U slots (19"" wide, 1.75"" high), with up to 40 servers per rack. Each server contains a processor, RAM, local disk, and 1+ Gbit/sec Ethernet. They typically run in headless mode without direct display/keyboard/mouse connections, with all interaction through network connections. This design maximizes density and operational efficiency."
-What is Roslyn and how does it help developers in .NET?,"Roslyn Developers rely heavily on their tools to help their development. Just look at what Visual Studio does to help you write better code, or look at the rich ecosystem of Visual Studio extensions. IDE features like IntelliSense and Find All References need an understanding of the current code base; this is typically information that a compiler can provide. Compilers used to be black boxes that took your source code and transformed it into, in our case, intermediate language. With Roslyn, Microsoft aimed to open up the compiler platform and provide it with an API set for everyone to use to write code enhancing tools. With Roslyn, we can write analyzers and code fixes. Analyzers look at your code and notify you when you write a piece of code that is not according to what the analyzer knows. .NET even ships with a default set of Analyzers; just open a new .NET 6 project and use solution explorer to have a look at Dependencies ➤ Analyzers, as shown in Figure 10-1",introducingnet6.pdf page 275,"Roslyn is Microsoft's compiler platform that opens up the compiler as an API rather than a black box. It enables developers to write analyzers and code fixes that examine code and notify when it doesn't conform to standards. .NET ships with default analyzers, and Roslyn powers IDE features like IntelliSense and Find All References by providing compiler-level understanding of codebases."
-Why should TypeScript developers use noImplicitAny and strictNullChecks?,"TypeScript is the most helpful when it has type information, so you should be sure to set noImplicitAny whenever possible. Once you grow accustomed to all variables having types, TypeScript without noImplicitAny feels almost like a different language. For new projects, you should start with noImplicitAny on, so that you write the types as you write your code. This will help TypeScript spot problems, improve the read ability of your code, and enhance your development experience (see Item 6). Leaving noImplicitAny off is only appropriate if you’re transitioning a project from Java Script to TypeScript (see Chapter 8). strictNullChecks controls whether null and undefined are permissible values in every type. This code is valid when strictNullChecks is off: const x: number = null; // OK, null is a valid number but triggers an error when you turn strictNullChecks on: const x: number = null; // ~ Type 'null' is not assignable to type 'number' A similar error would have occurred had you used undefined instead of null. If you mean to allow null, you can fix the error by making your intent explicit: 8 | Chapter 1: Getting to Know TypeScript const x: number | null = null; If you do not wish to permit null, you’ll need to track down where it came from and add either a check or an assertion: const el = document.getElementById('status'); el.textContent = 'Ready'; // ~~ Object is possibly 'null' if (el) { el.textContent = 'Ready'; // OK, null has been excluded } el!.textContent = 'Ready'; // OK, we've asserted that el is non-null strictNullChecks is tremendously helpful for catching errors involving null and undefined values, but it does increase the difficulty of using the language. If you’re starting a new project, try setting strictNullChecks. But if you’re new to the lan guage or migrating a JavaScript codebase, you may elect to leave it off. You should certainly set noImplicitAny before you set strictNullChecks. If you choose to work without strictNullChecks, keep an eye out for the dreaded “undefined is not an object” runtime error. Every one of these is a reminder that you should consider enabling stricter checking. Changing this setting will only get harder as your project grows, so try not to wait too long before enabling it. There are many other settings that affect language semantics (e.g., noImplicitThis and strictFunctionTypes), but these are minor compared to noImplicitAny and strictNullChecks. To enable all of these checks, turn on the strict setting. Type Script is able to catch the most errors with strict, so this is where you eventually want to wind up. Know which options you’re using! If a coworker shares a TypeScript example and you’re unable to reproduce their errors, make sure your compiler options are the same.",effectivetypescript.pdf page 8,"noImplicitAny ensures all variables have explicit types, catching errors early and improving code readability. strictNullChecks prevents null/undefined values in types unless explicitly allowed (e.g., ""number | null""), catching ""undefined is not an object"" errors. New projects should enable both, ideally using the ""strict"" setting. They increase initial difficulty but significantly reduce runtime errors."
+which all interaction with the system takes place over its network connection",moderncomputerarchitectureandorganization.pdf page 354,"Rack-based servers in WSCs are typically 1U units (19"" wide, 1.75"" high) mounted in standard 19"" racks, with on the order of a few dozen servers per rack (e.g. ~40 1U servers, depending on power and cooling limits). Each server includes a CPU (often multi-socket or multi-core), RAM, local storage (HDD/SSD), and at least one 1+ Gbit/s Ethernet interface. They usually run headless – no monitor, keyboard or mouse – with all interaction via the network. This form factor aims to maximise compute density and operational efficiency.
+
+You can broaden the description along a few dimensions:
+
+Physical + infrastructure integration
+
+Servers are mounted in racks that also contain top-of-rack (ToR) switches, power distribution units (PDUs), and sometimes rack-level monitoring gear.
+
+Power and cooling constraints (per-rack kW and airflow) often limit how many servers you can actually install, so “up to 40” is a theoretical density; real deployments balance density vs. reliability and cooling.
+
+Racks are arranged in hot/cold aisle layouts to optimise airflow and cooling efficiency at warehouse scale.
+
+Commodity, homogeneous design
+
+Rack servers in WSCs are often commodity or lightly customised hardware, designed to be cheap, consistent, and easy to replace rather than individually “highly reliable”.
+
+Homogeneity (many similar nodes) simplifies automation, scheduling and capacity planning: the system treats each server as a small interchangeable building block.
+
+Networking characteristics
+
+Each server typically connects to a ToR switch via 1 Gbit/s or 10+ Gbit/s Ethernet, with those switches uplinked into a multi-tier fabric (e.g. leaf–spine).
+
+Network design is optimised for east–west traffic (server-to-server inside the WSC) rather than just north–south (client–server), which is critical for large distributed systems.
+
+Management and operations
+
+Servers include out-of-band management (e.g. BMC/IPMI/Redfish), allowing remote power cycling, reimaging, and diagnostics without physical access.
+
+All configuration, software deployment, monitoring, and failure handling is automated through cluster management/orchestration systems; human interaction is at the fleet level, not per machine.
+
+The design assumes frequent hardware failures at scale, so software is built to tolerate node loss; servers are treated as disposable rather than precious.
+
+Serviceability and modularity
+
+Components like disks or PSUs are often hot-swappable, and racks are laid out so technicians can quickly replace failed units in batches.
+
+The balance is between:
+
+high density (more servers per rack),
+
+ease of maintenance (access for human hands), and
+
+staying within power and cooling envelopes.
+
+In short: rack-based servers in WSCs are small, headless, commodity building blocks, tightly integrated with rack-level power, cooling, and networking — optimised less for individual elegance and more for massive-scale, automated, and failure-tolerant operation."
+What is Roslyn and how does it help developers in .NET?,"Roslyn Developers rely heavily on their tools to help their development. Just look at what Visual Studio does to help you write better code, or look at the rich ecosystem of Visual Studio extensions. IDE features like IntelliSense and Find All References need an understanding of the current code base; this is typically information that a compiler can provide. Compilers used to be black boxes that took your source code and transformed it into, in our case, intermediate language. With Roslyn, Microsoft aimed to open up the compiler platform and provide it with an API set for everyone to use to write code enhancing tools. With Roslyn, we can write analyzers and code fixes. Analyzers look at your code and notify you when you write a piece of code that is not according to what the analyzer knows. .NET even ships with a default set of Analyzers; just open a new .NET 6 project and use solution explorer to have a look at Dependencies ➤ Analyzers, as shown in Figure 10-1",introducingnet6.pdf page 275,"Roslyn is the .NET compiler platform for C# and VB that turns what used to be a black-box compiler into a set of rich, accessible APIs. Instead of “you give it code, it gives you binaries and that’s it”, Roslyn exposes the whole pipeline: parsing, syntax trees, symbol tables, type information, diagnostics, and emitted code.
+
+Building on what you wrote:
+
+It enables developers to write analyzers and code fixes that inspect source code using the same understanding the compiler has. These analyzers can enforce coding standards, detect bugs, flag security issues, and suggest automatic fixes directly in the IDE.
+
+.NET ships with a set of built-in analyzers (style, quality, performance) and you can add your own or those from third parties. They plug into the build, dotnet CLI, and IDEs like Visual Studio / VS Code (via OmniSharp/Roslyn), so the same rules run everywhere.
+
+Roslyn also underpins a lot of the “magic” in modern .NET tooling:
+
+IDE features such as IntelliSense, Find All References, Go To Definition, Rename Symbol, and code refactorings are powered by Roslyn’s syntax trees and semantic model, not ad-hoc string hacks.
+
+It provides workspaces and project/solution APIs so tools can load and understand entire codebases, not just individual files. That’s how refactorings and analyzers stay project-aware (references, preprocessor symbols, multi-targeting, etc.).
+
+Source generators (a Roslyn feature) let you hook into compilation and generate additional C# code at build time based on the existing code or external metadata, avoiding reflection-heavy patterns and boilerplate.
+
+From a developer’s perspective, Roslyn gives you:
+
+A programmable view of code: you can parse, transform, and re-emit C# as easily as you’d manipulate a DOM.
+
+A unified way to implement static analysis, code transformations, and tooling that feel “first-class” in the .NET ecosystem.
+
+The same understanding of code that the compiler uses, which means your tools behave consistently with the language itself.
+
+So Roslyn isn’t just “the C# compiler”: it’s the language engine behind modern .NET development, making analyzers, refactorings, code generation, and rich IDE experiences all hang off one coherent platform."
+Why should TypeScript developers use noImplicitAny and strictNullChecks?,"TypeScript is the most helpful when it has type information, so you should be sure to set noImplicitAny whenever possible. Once you grow accustomed to all variables having types, TypeScript without noImplicitAny feels almost like a different language. For new projects, you should start with noImplicitAny on, so that you write the types as you write your code. This will help TypeScript spot problems, improve the read ability of your code, and enhance your development experience (see Item 6). Leaving noImplicitAny off is only appropriate if you’re transitioning a project from Java Script to TypeScript (see Chapter 8). strictNullChecks controls whether null and undefined are permissible values in every type. This code is valid when strictNullChecks is off: const x: number = null; // OK, null is a valid number but triggers an error when you turn strictNullChecks on: const x: number = null; // ~ Type 'null' is not assignable to type 'number' A similar error would have occurred had you used undefined instead of null. If you mean to allow null, you can fix the error by making your intent explicit: 8 | Chapter 1: Getting to Know TypeScript const x: number | null = null; If you do not wish to permit null, you’ll need to track down where it came from and add either a check or an assertion: const el = document.getElementById('status'); el.textContent = 'Ready'; // ~~ Object is possibly 'null' if (el) { el.textContent = 'Ready'; // OK, null has been excluded } el!.textContent = 'Ready'; // OK, we've asserted that el is non-null strictNullChecks is tremendously helpful for catching errors involving null and undefined values, but it does increase the difficulty of using the language. If you’re starting a new project, try setting strictNullChecks. But if you’re new to the lan guage or migrating a JavaScript codebase, you may elect to leave it off. You should certainly set noImplicitAny before you set strictNullChecks. If you choose to work without strictNullChecks, keep an eye out for the dreaded “undefined is not an object” runtime error. Every one of these is a reminder that you should consider enabling stricter checking. Changing this setting will only get harder as your project grows, so try not to wait too long before enabling it. There are many other settings that affect language semantics (e.g., noImplicitThis and strictFunctionTypes), but these are minor compared to noImplicitAny and strictNullChecks. To enable all of these checks, turn on the strict setting. Type Script is able to catch the most errors with strict, so this is where you eventually want to wind up. Know which options you’re using! If a coworker shares a TypeScript example and you’re unable to reproduce their errors, make sure your compiler options are the same.",effectivetypescript.pdf page 8,"noImplicitAny and strictNullChecks turn TypeScript from “JavaScript with hints” into a proper safety net.
+
+noImplicitAny
+
+Forces every variable, parameter, and return value to have a known type, instead of silently falling back to any.
+
+This means the compiler can actually reason about your code: it will catch misspelled properties, wrong argument shapes, and incorrect return types that would otherwise slip through.
+
+It also improves readability and maintainability: when you revisit code in six months, you can see exactly what’s expected, rather than guessing from usage.
+
+If you really do need escape hatches, you can still use any – but now you do it deliberately, and reviewers can spot and question it.
+
+strictNullChecks
+
+Treats null and undefined as proper inhabitants of their own types instead of being allowed everywhere.
+
+A variable of type number can’t silently become undefined; you must write number | undefined (or similar) and handle that case.
+
+This catches a whole class of “cannot read property ‘x’ of undefined” / “undefined is not an object” bugs at compile time, by forcing you to deal with potentially missing values via checks, optional chaining, default values, or narrowing.
+
+It also pushes you towards clearer domain modelling – e.g. “this field is optional” vs “this is always present once initialised”.
+
+In practice:
+
+New projects should almost always enable the top-level ""strict"": true option, which includes both noImplicitAny and strictNullChecks.
+
+Existing/legacy codebases often move there gradually: switch on noImplicitAny, clean things up, then enable strictNullChecks and tackle nullability in key modules first.
+
+Although they can make the first few days slightly more work, they dramatically reduce runtime bugs, make refactoring safer, and give tooling (IntelliSense, refactors) much better information to work with.
+
+Short version: turning these on stops TypeScript from politely looking away while you write JavaScript, and makes it actually guard your code."
 What are the main components of AI orchestrators in LLM-powered applications?,"The main components of AI orchestrators
  From one side, the paradigm shift of foundation models implies a great simplification in the domain 
 of AI-powered applications: after producing models, now the trend is consuming models. On the other 
@@ -130,7 +431,83 @@ only if the question is related to the provided documentation.”
 With the AI orchestrator, we refer to lightweight libraries that make it easier to embed and orchestrate 
 LLMs within applications.
  As LLMs went viral by the end of 2022, many libraries started arising in the market. In the next sections, 
-we are going to focus on three of them: LangChain, Semantic Kernel, and Haystack",buildingllmpoweredapplications.pdf page 31,"AI orchestrators are lightweight libraries (like LangChain, Semantic Kernel, and Haystack) that embed and orchestrate LLMs within applications. They manage prompts at two levels: frontend (user-facing queries) and backend (meta-prompts with instructions). They handle security threats, vector databases for documentation, and coordinate between LLM components to properly address user queries while following specified constraints."
+we are going to focus on three of them: LangChain, Semantic Kernel, and Haystack",buildingllmpoweredapplications.pdf page 31,"AI orchestrators (like LangChain, Semantic Kernel, Haystack, etc.) are lightweight frameworks that sit between your app and one or more LLMs. They don’t just “call the model”; they structure how calls happen, in what order, with what context, and under which rules.
+
+Building on your summary, you can frame their main components roughly like this:
+
+Model + prompt management layer
+
+Abstractions over different LLM providers (OpenAI, Azure, local models, etc.).
+
+Prompt templates and prompt pipelines for:
+
+Frontend prompts: user-facing queries.
+
+Backend/meta prompts: system instructions, planning prompts, self-critique, tool-selection prompts, etc.
+
+Support for multi-model routing (e.g. cheap model for classification, bigger model for reasoning).
+
+Chaining / workflow / graph execution
+
+Primitives like chains, pipelines, or graphs to connect multiple LLM calls, tools, and retrieval steps.
+
+Control flow: branching, looping, error handling, timeouts, retries.
+
+“Agent” patterns, where an LLM repeatedly plans → calls tools → reflects → continues until a goal is reached.
+
+Context and retrieval components
+
+Connectors to vector databases / search backends (Pinecone, Qdrant, Elasticsearch, etc.).
+
+Retrievers that take a user query and fetch relevant docs/chunks.
+
+Mechanisms to build and maintain embeddings indexes from documentation, knowledge bases, and user data.
+
+Automatic construction of the final context window (chunk selection, re-ranking, trimming).
+
+Memory and state management
+
+Short-term memory: conversation history, intermediate reasoning steps.
+
+Long-term memory: user profiles, preferences, previous tasks.
+
+Structured state objects passed between steps in a chain/graph.
+
+Security, safety, and policy enforcement
+
+Input/output filters for prompt injection, data leakage, jailbreak attempts, PII, etc.
+
+Policy layers that enforce constraints (e.g. which tools a given user/tenant can invoke).
+
+Guards around external tool calls (rate limits, allowed domains, parameter validation).
+
+Tooling and integration layer
+
+Wrappers around tools/APIs: databases, search engines, code execution, business systems.
+
+Function/tool-calling integration so LLMs can decide which tool to call and with what arguments.
+
+Connectors to queues, event systems, HTTP endpoints, cron jobs, etc., so LLM workflows can live inside real apps.
+
+Observability, evaluation, and optimisation
+
+Logging and tracing of every step (prompts, responses, latency, errors).
+
+Hooks for evaluation: automatic tests, human rating loops, regression suites.
+
+Analytics for cost, token usage, and model comparison.
+
+Sometimes built-in support for A/B testing prompt variants or different workflows.
+
+Runtime / deployment concerns
+
+Configuration-driven setup (YAML/JSON) for models, prompts, tools and routes.
+
+Support for multi-tenant environments, environments (dev/stage/prod), and secrets management.
+
+Caching of LLM results to reduce cost and latency.
+
+So instead of just “a library that calls an LLM”, an orchestrator is more like middleware for AI workflows: it manages prompts at multiple levels, coordinates retrieval and tools, enforces security and constraints, and gives you the monitoring and structure needed to run LLM-powered features reliably in production."
 Explain activation functions in neural networks and their purpose.," Activation functions: adding some extra nonlinearity
  g
  Activation or transfer functions are one such class of functions, and are commonly
@@ -167,7 +544,63 @@ ing parameters. We may decide to use nonlinear activation functions in each of t
 ferent widths or number of nodes. It is fully connected since every node in a layer is
  connected to nodes in the subsequent layer, but this need not be the case. As a matter
  of fact, one way to control for overfitting in DL is by systematically deleting some of
- these edges between nodes, a technique known as dropout.",analyticalskillsforaianddatascience.pdf page 205,"Activation functions add nonlinearity to neural networks. ReLU (Rectified Linear Unit) outputs zero for negative inputs and linear for positive values. Sigmoid provides smoother activation. These functions were originally designed to emulate neuron firing but are now used to improve predictive model performance. They enable networks to learn complex, non-linear relationships in data."
+ these edges between nodes, a technique known as dropout.",analyticalskillsforaianddatascience.pdf page 205,"Activation functions are the parts of a neural network that decide **how much a neuron “fires” given its input**, and they’re crucial because they make the whole thing more than just a fancy linear regression.
+
+Here’s a tighter but broader explanation:
+
+* **Core purpose: add nonlinearity**
+  Without activation functions, every layer of a feed-forward network would just combine linearly with the others, and the whole network would collapse to a single linear transformation. You’d never be able to model non-linear patterns like XOR, complex decision boundaries, or most interesting real-world relationships.
+  Activation functions break that linearity so deep networks can approximate highly complex functions.
+
+* **What makes a “good” activation function?**
+  We usually want them to be:
+
+  * **Non-linear** – otherwise depth is pointless.
+  * **Differentiable (or nearly)** – so gradient-based optimisation (backprop) works.
+  * **Well-behaved gradients** – not all squashed to zero (vanishing) or exploding.
+  * Often **cheap to compute**, because you’re doing this millions or billions of times.
+
+* **Common activation functions and where they show up**
+
+  * **ReLU (Rectified Linear Unit)**:
+    [
+    f(x) = \max(0, x)
+    ]
+    Zero for negative inputs, identity for positive ones. It’s simple, fast, and avoids vanishing gradients for positive values, which is why it became the default in deep nets. Downsides: “dead ReLUs” (neurons stuck at zero if weights push them permanently negative).
+
+  * **Leaky ReLU / variants (PReLU, ELU, GELU, etc.)**
+    These are tweaks to ReLU that let a small gradient flow for negative values (e.g. `max(αx, x)`), or smooth the shape, to reduce dead neurons and sometimes improve performance and training stability.
+
+  * **Sigmoid**:
+    [
+    \sigma(x) = \frac{1}{1 + e^{-x}}
+    ]
+    Smoothly squashes inputs to (0,1). Historically used everywhere; now mainly used in **output layers** for binary classification or gates in LSTMs/GRUs. In hidden layers it tends to cause **vanishing gradients** because the function saturates near 0 and 1.
+
+  * **tanh**:
+    Like a rescaled sigmoid, outputs in (−1,1). Zero-centred, which usually trains better than sigmoid in hidden layers, but still suffers from saturation/vanishing gradients in deep networks.
+
+  * **Softmax**:
+    Used in **output layers** for multi-class classification. Turns a vector of scores into a probability distribution (values in (0,1) that sum to 1). It’s not used per-neuron in hidden layers, but still an activation function conceptually.
+
+* **Different roles in hidden vs output layers**
+
+  * **Hidden layers** use ReLU-style or tanh/sigmoid-style activations to build up rich internal representations.
+  * **Output layers** choose activations to match the task:
+
+    * Regression: often **linear** (no activation).
+    * Binary classification: **sigmoid**.
+    * Multi-class classification: **softmax**.
+
+* **Why they matter beyond “nonlinearity”**
+
+  Activation functions affect:
+
+  * **Trainability**: ease of optimisation, susceptibility to vanishing/exploding gradients.
+  * **Speed**: both training and inference cost.
+  * **Generalisation**: some choices empirically give better performance on real data.
+
+So yes, they started as a rough analogy to biological neuron firing, but in modern practice they’re chosen as **engineering components**: mathematical shapes that make deep networks trainable, expressive, and reasonably well-behaved, so the model can actually learn the messy non-linear structure of real data."
 How does Bayesian Optimization work for black box function optimization?,"At this point, you might be wondering whether all of this heavy machinery really
  works—or works better than some simple strategy like random sampling. To find out,
  let’s take a look at a “demo” of BayesOpt on a simple function. This will also be a good
@@ -179,7 +612,120 @@ How does Bayesian Optimization work for black box function optimization?,"At thi
  fact, do not know the shape of the objective. We see the objective has a couple of local
  maxima around –5 (roughly, –2.4 and 1.5) but the global maximum is on the right at
  approximately 4.3. Let’s also assume we are allowed to evaluate the objective function
- a maximum of 10 times.",bayesianoptimizationinaction page 14,"Bayesian Optimization (BayesOpt) maximizes/minimizes black box objective functions with limited evaluations. It works without knowing the function shape, using probabilistic models to intelligently select evaluation points. For example, when optimizing a 1D function from -5 to 5 with 10 evaluations, BayesOpt can find the global maximum (around 4.3) while avoiding local maxima, outperforming random sampling strategies."
+ a maximum of 10 times.",bayesianoptimizationinaction page 14,"Bayesian Optimization (BayesOpt) is a strategy for optimising an expensive, black-box function when you can sample it but not see its formula or gradients, and you only get a small evaluation budget.
+You already have the core idea: it uses a probabilistic model to choose evaluation points intelligently instead of randomly. Let’s flesh that out a bit.
+
+The basic loop
+Bayesian Optimisation works in a repeat-until-budget-runs-out loop:
+
+
+Fit a surrogate model
+Use the points you’ve already evaluated, (xi,f(xi))(x_i, f(x_i))(xi​,f(xi​)), to fit a probabilistic model of the unknown function.
+Most commonly:
+
+
+Gaussian Processes (GPs) for low-dimensional, continuous spaces
+
+
+Or alternatives like random forests, TPE, Bayesian neural nets, etc.
+
+
+This gives you, for every candidate xxx, a distribution over f(x)f(x)f(x), not just a single guess: a mean μ(x)\mu(x)μ(x) and uncertainty σ(x)\sigma(x)σ(x).
+
+
+Define an acquisition function
+The acquisition function uses μ(x)\mu(x)μ(x) and σ(x)\sigma(x)σ(x) to quantify how “promising” each point is. Popular choices:
+
+
+Expected Improvement (EI)
+
+
+Upper Confidence Bound (UCB)
+
+
+Probability of Improvement (PI)
+
+
+These naturally trade off:
+
+
+Exploitation – sampling where the model thinks values are high
+
+
+Exploration – sampling where uncertainty is large
+
+
+
+
+Optimise the acquisition function
+Find the xxx that maximises the acquisition function (much cheaper than evaluating the true black-box).
+This gives the next point to evaluate with the real expensive function.
+
+
+Evaluate the black-box at that point
+Run the actual experiment / simulation / training job to get f(xnext)f(x_{\text{next}})f(xnext​).
+
+
+Update the surrogate model
+Add the new data point, refit/updated the model, and repeat.
+
+
+Because the surrogate has a sense of both where looks good and where we’re ignorant, the optimiser can:
+
+
+Avoid getting stuck forever in a local optimum
+
+
+Focus evaluations where they’re most informative
+
+
+Use very few evaluations to find something close to the global optimum
+
+
+In your 1D example [−5,5][-5, 5][−5,5] with 10 evaluations, BayesOpt can zoom in near the true maximum (say around 4.3) instead of wasting samples uniformly like random search.
+
+Why it’s useful in practice
+Bayesian Optimisation shines when:
+
+
+Evaluations are expensive
+e.g. training a model for hours, running a CFD simulation, tuning a lab experiment.
+
+
+No gradients or closed form
+It treats the objective as a complete black box.
+
+
+You care about global rather than local optima
+The exploration–exploitation balance helps avoid getting trapped early.
+
+
+Typical real-world uses include:
+
+
+Hyperparameter tuning (learning rate, depth, regularisation, etc.)
+
+
+Experimental design in science & engineering
+
+
+Tuning compiler flags, system parameters, ad strategies, etc.
+
+
+
+A few extra nuances
+
+
+It can be extended to batch settings (choose several points to evaluate in parallel) and multi-objective optimisation (optimising trade-offs between several metrics).
+
+
+It struggles as dimension gets very high (say > 30–50), so people combine it with dimensionality reduction, structure priors, or manual narrowing of the search space.
+
+
+You can include constraints (e.g. only sample where latency < X ms) by modelling feasibility with its own probabilistic model.
+
+
+In short: Bayesian Optimisation builds and constantly refines a probabilistic map of your unknown function, then uses that map to decide the most informative next place to look, squeezing as much value as possible from every evaluation."
 What's the best way to make a proper cup of tea?,,,"Right, here's the thing - use freshly boiled water (not reboiled), warm the pot first, add one teaspoon of loose leaf tea per person plus one for the pot. Let it brew for 3-5 minutes depending on strength preference. Milk goes in after if you're having it. The key is not rushing it and using decent quality tea leaves."
 How can I improve my sleep quality?,,,"Good sleep comes down to consistency and environment. Try to keep the same sleep schedule even on weekends. Make your room properly dark and cool (around 16-18°C is ideal). Avoid screens for an hour before bed, and don't have caffeine after 2pm. Regular exercise helps too, just not right before bed. If you're still struggling after a few weeks of this, might be worth chatting to your GP."
 What are some good ways to stay motivated when learning something new?,,,"Learning something new can be a bit of a slog at times. Break it down into smaller, manageable chunks rather than trying to tackle everything at once. Set specific goals and track your progress - it's quite satisfying to see how far you've come. Mix up your learning methods to keep things interesting, and don't be afraid to take breaks when you need them. Also, find a community or someone else learning the same thing - it helps to share the struggle and celebrate the wins together."

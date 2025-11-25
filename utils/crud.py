@@ -1,7 +1,6 @@
 from schema.users import User, ChatHistory
 from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
 
 def create_user(db: Session, name: str, email: str, password: str) -> User:
     """Creates a new user with a hashed password."""
@@ -31,10 +30,11 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         return user
     return None
 
-def create_chat_entry(db: Session, user_id: int, question: str, answer: str) -> ChatHistory:
+def create_chat_entry(db: Session, user_id: int, question: str, answer: str, session_id: str) -> ChatHistory:
     """Saves a new Q&A pair to the history."""
     chat_entry = ChatHistory(
         user_id=user_id,
+        session_id=session_id,
         question=question,
         answer=answer
     )
@@ -60,8 +60,3 @@ def delete_chat_entry(db: Session, entry_id: int) -> bool:
         return True
     return False
 
-def get_user_by_email_and_password(db: Session, email: str, password: str) -> User | None:
-    user = get_user_by_email(db, email)
-    if user and check_password_hash(user.password, password):
-        return user
-    return None

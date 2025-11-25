@@ -30,11 +30,24 @@ Evaluate the user's question on three dimensions:
      * Violates ethical guidelines or content policies
    - Mark as appropriate (inappropriate_question: false) for normal, legitimate questions
 
-3. **Improved Question**: Generate an improved version of the user's question that is optimized for retrieval from a technical vector database.
-   - Remove conversational filler (e.g., "Can you please tell me...").
-   - Add relevant technical keywords if implied (e.g., "How to loop in py" -> "Python for loop syntax examples").
-   - Make it specific and self-contained.
-   - If the question is inappropriate or a simple greeting, return the original question.
+3. **Improved Question**: Generate a cleaner, search-friendly version of the user's question.
+
+   **Guidelines (keep it natural, don't over-optimize):**
+   - Remove conversational filler (e.g., "Can you please tell me..." → just the core question).
+   - Expand common abbreviations (e.g., "py" → "Python", "JS" → "JavaScript").
+   - Keep the question's natural phrasing — don't turn it into a list of keywords.
+   - Add 1-2 relevant terms only if they clarify intent (e.g., "How to loop" → "How to use loops in Python").
+   - Preserve the question format when possible — semantic search works well with natural language.
+   
+   **Examples:**
+   - "How do I do loops in py?" → "How to use for loops and while loops in Python"
+   - "Tell me about protecting against prompt injection" → "How to protect against prompt injection attacks in LLM applications"
+   - "What's the best way to handle errors?" → "Best practices for error handling and exceptions"
+   - "explain decorators" → "What are Python decorators and how do they work"
+   
+   **Avoid:** Turning questions into keyword lists like "Python loop for while iteration syntax" — this hurts semantic search.
+   
+   If the question is inappropriate or a simple greeting, return the original question unchanged.
 
 If a question is inappropriate, you should still indicate whether retrieval would normally be required, but the system will handle inappropriate questions differently.
 """

@@ -7,11 +7,10 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from prompts.retrieval_question import RETRIEVAL_QUESTION_SYSTEM_PROMPT
 from prompts.grade_documents import GRADE_DOCUMENTS_SYSTEM_PROMPT
-from prompts.generate_answer import GENERATE_ANSWER_SYSTEM_PROMPT
+from prompts.generate_answer import GENERATE_ANSWER_SYSTEM_PROMPT, GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT
 from schema.models import RetrievalRequired, RetrievalGrade
 from utils.logging import Logging
 
@@ -39,17 +38,20 @@ answer_generation_llm = ChatOpenAI(
     model=os.getenv("ANSWER_GENERATE_LLM"), 
     temperature=0, 
     api_key=os.getenv("OPENAI_API_KEY"),
-    reasoning_effort="medium",
+    reasoning_effort="minimal",
+    streaming=True,
 )
 logging.log_info("LLMs initialised.")
 
 def retrieval_required_chain(question: str) -> str:
-    """Retrieves the required documents for the question.
+    """
+    Decides if we need to fetch docs.
+    It's essentially asking: "Do I know this off the top of my head, or do I need to look it up?"
     
     Args:
-        question: The question to retrieve the required documents for.
+        question: The user's burning question.
     Returns:
-        A RetrievalRequired object.
+        A RetrievalRequired object (yes/no and maybe an improved question).
     """
 
     logging.log_info("Initialising retrieval required chain...")
@@ -63,12 +65,14 @@ def retrieval_required_chain(question: str) -> str:
     retrieval_question_chain = retrieval_question_prompt | llm_structured_output
     return retrieval_question_chain.invoke({"question": question})
 
-def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
-    """Grades the documents for the question.
+def grade_documents_chain(question: str, retrieved_documents: list[str]) -> RetrievalGrade:
+    """
+    Grades the documents we found (synchronous version).
+    We don't want to feed garbage to the LLM, so we filter out the irrelevant stuff here.
     
     Args:
-        question: The question to grade the documents for.
-        retrieved_documents: The retrieved documents to grade.
+        question: What the user asked.
+        retrieved_documents: The raw text chunks we found.
     Returns:
         A RetrievalGrade object.
     """
@@ -81,18 +85,41 @@ def grade_documents_chain(question: str, retrieved_documents: list[str]) -> str:
     logging.log_info("Document grade LLM structured output initialised.")
     llm_structured_output = document_grade_llm.with_structured_output(RetrievalGrade)
     logging.log_info("Grade documents chain initialised.")
-    grade_documents_chain = grade_documents_prompt | llm_structured_output
-    return grade_documents_chain.invoke({"question": question, "retrieved_documents": retrieved_documents})
+    chain = grade_documents_prompt | llm_structured_output
+    return chain.invoke({"question": question, "retrieved_documents": retrieved_documents})
 
 
-def generate_answer_chain(question: str, retrieved_documents: list[dict]) -> str:
-    """Generates an answer for the question.
+async def grade_documents_chain_async(question: str, retrieved_documents: list[str]) -> RetrievalGrade:
+    """
+    Grades the documents we found (async version for parallel execution).
     
     Args:
-        question: The question to generate an answer for.
-        retrieved_documents: List of document dicts with 'content', 'source_name', and 'source_page' keys.
+        question: What the user asked.
+        retrieved_documents: The raw text chunks we found.
     Returns:
-        A string answer.
+        A RetrievalGrade object.
+    """
+    grade_documents_prompt = ChatPromptTemplate.from_messages([
+        ("system", GRADE_DOCUMENTS_SYSTEM_PROMPT),
+        ("user", "{question}"),
+        ("user", "{retrieved_documents}"),
+    ])
+    llm_structured_output = document_grade_llm.with_structured_output(RetrievalGrade)
+    chain = grade_documents_prompt | llm_structured_output
+    return await chain.ainvoke({"question": question, "retrieved_documents": retrieved_documents})
+
+
+def generate_answer_chain(question: str, retrieved_documents: list[dict], callbacks: list = None) -> str:
+    """
+    The final step: crafting the answer.
+    We take the question and the best docs we found, and ask the LLM to write a response.
+    
+    Args:
+        question: The user's question.
+        retrieved_documents: The chosen few documents that made the cut.
+        callbacks: For streaming, if we're feeling fancy.
+    Returns:
+        The final answer string.
     """
     # Format documents for the prompt with source information
     logging.log_info("Formatting documents for the prompt...")
@@ -107,19 +134,20 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict]) -> str
             ("user", "Documents:\n{documents}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
-        generate_answer_chain = generate_answer_prompt | answer_generation_llm
+        chain = generate_answer_prompt | answer_generation_llm
         logging.log_info("Answer generation chain initialised.")
-        return generate_answer_chain.invoke({"question": question, "documents": documents_text})
+        return chain.invoke({"question": question, "documents": documents_text}, config={"callbacks": callbacks})
     else:
         # No documents - just ask the question
+        # Sometimes the user just says "hello", so we don't need to force-feed them documents.
         messages = [
-            ("system", GENERATE_ANSWER_SYSTEM_PROMPT),
+            ("system", GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT),
             ("user", "{question}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
-        generate_answer_chain = generate_answer_prompt | answer_generation_llm
+        chain = generate_answer_prompt | answer_generation_llm
         logging.log_info("Answer generation chain initialised.")
-        return generate_answer_chain.invoke({"question": question})
+        return chain.invoke({"question": question}, config={"callbacks": callbacks})
 
 if __name__ == "__main__":
     question = "Hello, What is the capital of France?"
