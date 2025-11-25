@@ -8,7 +8,7 @@ if str(project_root) not in sys.path:
 
 import asyncio
 from schema.models import RAGState, RetrievedDocument
-from rag.chains import retrieval_required_chain, grade_documents_chain, grade_documents_chain_async, generate_answer_chain
+from rag.chains import retrieval_required_chain, grade_documents_chain_async, generate_answer_chain
 from database.vector_store import VectorStore
 import os
 from datetime import datetime
