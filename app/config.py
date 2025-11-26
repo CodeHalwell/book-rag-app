@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv('FLASK_SECRET_KEY')
-    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///bookrag.db')
+    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///data/bookrag.db')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     VECTOR_STORE_NAME = os.getenv('VECTOR_STORE_NAME')
     VECTOR_STORE_DB_PATH = os.getenv('VECTOR_STORE_DB_PATH')

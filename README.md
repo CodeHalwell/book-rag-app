@@ -124,7 +124,7 @@ BookRAG/
    
    # Flask Configuration
    FLASK_SECRET_KEY=your-secret-key-here
-   DATABASE_URL=sqlite:///bookrag.db
+   DATABASE_URL=sqlite:///data/bookrag.db
    
    # Environment
    CURRENT_STATE=development

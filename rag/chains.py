@@ -109,7 +109,7 @@ async def grade_documents_chain_async(question: str, retrieved_documents: list[s
     return await chain.ainvoke({"question": question, "retrieved_documents": retrieved_documents})
 
 
-def generate_answer_chain(question: str, retrieved_documents: list[dict], callbacks: list = None) -> str:
+def generate_answer_chain(question: str, retrieved_documents: list[dict], chat_history: list[dict] = None, callbacks: list = None) -> str:
     """
     The final step: crafting the answer.
     We take the question and the best docs we found, and ask the LLM to write a response.
@@ -117,12 +117,26 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict], callba
     Args:
         question: The user's question.
         retrieved_documents: The chosen few documents that made the cut.
+        chat_history: Previous conversation messages for context.
         callbacks: For streaming, if we're feeling fancy.
     Returns:
         The final answer string.
     """
     # Format documents for the prompt with source information
     logging.log_info("Formatting documents for the prompt...")
+    
+    # Build conversation history messages
+    history_messages = []
+    if chat_history:
+        for msg in chat_history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                history_messages.append(("human", content))
+            else:
+                history_messages.append(("assistant", content))
+        logging.log_info(f"Including {len(chat_history)} messages of conversation history.")
+    
     if retrieved_documents:
         documents_text = "\n\n".join([
             f"Document {i+1} [Source: {doc['source_name']}, Page: {doc['source_page']}]:\n{doc['content']}" 
@@ -130,8 +144,9 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict], callba
         ])
         messages = [
             ("system", GENERATE_ANSWER_SYSTEM_PROMPT),
-            ("user", "{question}"),
-            ("user", "Documents:\n{documents}"),
+            *history_messages,  # Include conversation history
+            ("human", "{question}"),
+            ("human", "Documents:\n{documents}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
         chain = generate_answer_prompt | answer_generation_llm
@@ -142,7 +157,8 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict], callba
         # Sometimes the user just says "hello", so we don't need to force-feed them documents.
         messages = [
             ("system", GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT),
-            ("user", "{question}"),
+            *history_messages,  # Include conversation history
+            ("human", "{question}"),
         ]
         generate_answer_prompt = ChatPromptTemplate.from_messages(messages)
         chain = generate_answer_prompt | answer_generation_llm

@@ -12,5 +12,6 @@ wheels/
 book_collection
 code_review
 db
+data/
 bookrag.db
 docs

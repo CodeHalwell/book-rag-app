@@ -51,6 +51,14 @@ def get_user_chat_history(db: Session, user_id: int, limit: int = 50) -> list[Ch
         .limit(limit)\
         .all()
 
+def get_session_chat_history(db: Session, session_id: str, limit: int = 10) -> list[ChatHistory]:
+    """Retrieves recent chat history for a specific session (for conversation memory)."""
+    return db.query(ChatHistory)\
+        .filter(ChatHistory.session_id == session_id)\
+        .order_by(ChatHistory.created_at.desc())\
+        .limit(limit)\
+        .all()
+
 def delete_chat_entry(db: Session, entry_id: int) -> bool:
     """Deletes a specific chat entry."""
     entry = db.query(ChatHistory).filter(ChatHistory.id == entry_id).first()

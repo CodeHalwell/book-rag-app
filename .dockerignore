@@ -5,7 +5,6 @@ __pycache__/
 *.so
 .venv/
 venv/
-.env
 
 # Git
 .git/

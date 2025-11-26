@@ -28,10 +28,15 @@ class RetrievalRequired(BaseModel):
     inappropriate_question: bool = Field(description="Whether the question is inappropriate or not")
     improved_question: str = Field(description="An improved question that is appropriate and relevant to the user's question")
 
+class ChatMessage(BaseModel):
+    role: str = Field(description="The role of the message sender (user or assistant)")
+    content: str = Field(description="The content of the message")
+
 class RAGState(TypedDict, total=False):
     question: str
     retrieved_documents: list[RetrievedDocument]
     messages: list[BaseMessage]
+    chat_history: list[ChatMessage]  # Conversation memory
     answer: str
     search_queries: list[str]
     retrieval_time: float

@@ -8,7 +8,7 @@ from threading import Thread
 from queue import Queue, Empty
 from langchain_core.callbacks import BaseCallbackHandler
 from database.connection import get_db
-from utils.crud import get_user_by_id, create_user, get_user_chat_history, create_chat_entry
+from utils.crud import get_user_by_id, create_user, get_user_chat_history, create_chat_entry, get_session_chat_history
 from rag.graph import build_graph
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,18 @@ def chat():
     q = Queue()
     handler = StreamHandler(q)
 
+    # Fetch recent chat history for conversation memory
+    with get_db() as db:
+        session_history = get_session_chat_history(db, session_id, limit=10)
+    
+    # Convert to chat history format (oldest first for proper context)
+    chat_history = []
+    for entry in reversed(session_history):
+        chat_history.append({"role": "user", "content": entry.question})
+        chat_history.append({"role": "assistant", "content": entry.answer})
+    
+    logger.debug(f"Chat history for session {session_id}: {len(chat_history)} messages")
+
     def task():
         """
         Worker function that runs in a separate thread.
@@ -84,7 +96,7 @@ def chat():
         """
         try:
             result = rag_graph.invoke(
-                {"question": user_query},
+                {"question": user_query, "chat_history": chat_history},
                 config={"configurable": {"stream_callback": handler}}
             )
             answer = result.get("answer", "Sorry, I could not generate an answer.")

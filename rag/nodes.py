@@ -209,13 +209,23 @@ def generate_answer(state: RAGState, config: RunnableConfig) -> RAGState:
     
     logging.log_info(f"Formatting {len(doc_dicts)} documents for the prompt.")
     
+    # Get chat history for conversation memory
+    chat_history = state.get("chat_history", [])
+    if chat_history:
+        logging.log_info(f"Using {len(chat_history)} messages of conversation history.")
+    
     callbacks = []
     if config and "configurable" in config:
         stream_callback = config["configurable"].get("stream_callback")
         if stream_callback:
             callbacks = [stream_callback]
             
-    answer_message = generate_answer_chain(state["question"], doc_dicts, callbacks=callbacks)
+    answer_message = generate_answer_chain(
+        state["question"], 
+        doc_dicts, 
+        chat_history=chat_history,
+        callbacks=callbacks
+    )
     
     answer_content = answer_message.content if hasattr(answer_message, 'content') else str(answer_message)
     logging.log_info("Answer generated successfully.")
