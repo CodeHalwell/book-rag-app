@@ -1,3 +1,21 @@
+# Stage 1: Build React frontend
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build production bundle
+RUN npm run build
+
+# Stage 2: Python backend with frontend static files
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -23,6 +41,9 @@ RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY . .
+
+# Copy built frontend from builder stage
+COPY --from=frontend-builder /frontend/dist /app/frontend/dist
 
 EXPOSE 5000
 

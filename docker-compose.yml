@@ -1,0 +1,16 @@
+services:
+  bookrag:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      # Mount vector database for persistence
+      - ./db:/app/db
+      # Mount SQLite database for persistence
+      - ./data:/app/data
+    environment:
+      - CURRENT_STATE=production
+    restart: unless-stopped
+

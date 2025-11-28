@@ -34,11 +34,19 @@ evaluation/results/
 # Documentation
 *.md
 !README.md
+docs/
+
+# Frontend build artifacts (rebuilt in Docker)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 
 # Misc
 .DS_Store
 Thumbs.db
 *.log
 
+# Large data files (mount as volumes instead)
 book_collection/
-
+db/
+data/

@@ -13,6 +13,7 @@ from prompts.grade_documents import GRADE_DOCUMENTS_SYSTEM_PROMPT
 from prompts.generate_answer import GENERATE_ANSWER_SYSTEM_PROMPT, GENERATE_ANSWER_NO_DOCS_SYSTEM_PROMPT
 from schema.models import RetrievalRequired, RetrievalGrade
 from utils.logging import Logging
+from utils.helpers import format_document_name
 
 logging = Logging()
 
@@ -139,7 +140,7 @@ def generate_answer_chain(question: str, retrieved_documents: list[dict], chat_h
     
     if retrieved_documents:
         documents_text = "\n\n".join([
-            f"Document {i+1} [Source: {doc['source_name']}, Page: {doc['source_page']}]:\n{doc['content']}" 
+            f"Document {i+1} [Source: {format_document_name(doc['source_name'])}, Page: {doc['source_page']}]:\n{doc['content']}" 
             for i, doc in enumerate(retrieved_documents)
         ])
         messages = [
